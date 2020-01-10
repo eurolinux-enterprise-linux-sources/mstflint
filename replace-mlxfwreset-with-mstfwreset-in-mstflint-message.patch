@@ -1,0 +1,13 @@
+diff --git a/flint/subcommands.cpp b/flint/subcommands.cpp
+index 3840579..3d2680b 100644
+--- a/flint/subcommands.cpp
++++ b/flint/subcommands.cpp
+@@ -3018,7 +3018,7 @@ FlintStatus SgSubCommand::sgFs2()
+     return FLINT_SUCCESS;
+ }
+ 
+-#define FW_RESET_MSG "To load new configuration run mlxfwreset or reboot machine"
++#define FW_RESET_MSG "To load new configuration run mstfwreset or reboot machine"
+ 
+ FlintStatus SgSubCommand::sgFs3()
+ {

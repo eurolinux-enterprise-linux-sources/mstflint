@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # Copyright (c) 2004-2010 Mellanox Technologies LTD. All rights reserved.
 #
 # This software is available to you under a choice of one of two
@@ -36,12 +34,13 @@
 * $Authors      : Roei Yitzhak (roei@mellanox.com)
 """
 
+from __future__ import print_function
 # TODO fix it latter - need to import the function from mlxfwreset.py
 import sys,os
 mlxfwreset_dir = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(mlxfwreset_dir)
 
-from mcra import Mcra
+from .mcra import Mcra
 from mtcr import MstDevice
 from regaccess import RegAccess
 from dev_mgt import DevMgt

@@ -36,7 +36,7 @@
 
 #ifdef __WIN__
 
-#include<winsock2.h>
+#include <winsock2.h>
 #include <windows.h>
 
 #ifdef MTCR_EXPORTS
@@ -45,37 +45,37 @@
 #define MTCR_API __declspec(dllimport)
 #endif
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__) || defined(__MINGW64__)
     #include <stdint.h>
 #else
-    typedef __int8           int8_t;
-    typedef __int16          int16_t;
-    typedef __int32          int32_t;
-    typedef __int64          int64_t;
+typedef __int8 int8_t;
+typedef __int16 int16_t;
+typedef __int32 int32_t;
+typedef __int64 int64_t;
 #endif // !_MSC_VER
-    typedef unsigned __int8  u_int8_t;
-    typedef unsigned __int16 u_int16_t;
-    typedef unsigned __int32 u_int32_t;
-    typedef unsigned __int64 u_int64_t;
+typedef unsigned __int8 u_int8_t;
+typedef unsigned __int16 u_int16_t;
+typedef unsigned __int32 u_int32_t;
+typedef unsigned __int64 u_int64_t;
 
 #if defined(_WIN64)
-    typedef __int64 MT_long_ptr_t;
-    typedef unsigned __int64 MT_ulong_ptr_t;
+typedef __int64 MT_long_ptr_t;
+typedef unsigned __int64 MT_ulong_ptr_t;
 #else
-    typedef _W64 long MT_long_ptr_t;
-    typedef _W64 unsigned long MT_ulong_ptr_t;
+typedef _W64 long MT_long_ptr_t;
+typedef _W64 unsigned long MT_ulong_ptr_t;
 #endif
 
 #elif defined(__DJGPP__)
 
-    typedef unsigned char    u_int8_t;
-    typedef char             int8_t;
-    typedef unsigned short   u_int16_t;
-    typedef short            int16_t;
-    typedef unsigned int     u_int32_t;
-    typedef long             int32_t;
-    typedef unsigned long long u_int64_t;
-    typedef long long        int64_t;
+typedef unsigned char u_int8_t;
+typedef char int8_t;
+typedef unsigned short u_int16_t;
+typedef short int16_t;
+typedef unsigned int u_int32_t;
+typedef long int32_t;
+typedef unsigned long long u_int64_t;
+typedef long long int64_t;
 
 #define bswap_32(x) ntohl(x)
 #define MTCR_API
@@ -87,9 +87,19 @@
 
 #endif
 
+extern int increase_poll_time;
+
+/*
+ * MST <--> MTCR API defines
+ */
+#define MST_HEADER_VERSION 1
+#define MST_META_DATA_MAJOR 1
+#define MST_META_DATA_MINOR 0
+#define MTCR_SUPP_MST_API_MAJOR_VERSION 1
+
 //#ifndef USE_IB_MGT
 typedef struct mib_private_t {
-        int dummy;
+    int dummy;
 } MIB_Private;
 //#else
 //#include "mtcr_ib_private.h"
@@ -117,6 +127,7 @@ typedef enum MError {
 
     ME_UNSUPPORTED_OPERATION,
     ME_UNSUPPORTED_ACCESS_TYPE,
+    ME_GMP_MAD_UNSUPPORTED_OPERATION,
 
     // errors regarding REG_ACCESS
     ME_REG_ACCESS_OK = 0,
@@ -204,10 +215,11 @@ typedef enum MType_t {
 #ifdef ENABLE_MST_DEV_I2C
     MST_DEV_I2C = 0x1000,
 #endif
-    // 0x2000 reserved
+    MST_CALBR = 0x2000,
     MST_FPGA_ICMD = 0x4000,
     MST_CABLE = 0x8000,
     MST_FPGA_DRIVER = 0x10000,
+    MST_SOFTWARE = 0x20000,
     MST_DRIVER_CONF = 0x40000,
     MST_DRIVER_CR = 0x80000,
     MST_DEFAULT = 0xffffffff & ~MST_CABLE & ~MST_FPGA & ~MST_FPGA_ICMD & ~MST_FPGA_DRIVER
@@ -236,17 +248,42 @@ typedef enum Mdevs_t {
     MDEVS_FPGA = 0x2000,/* Access LPC region */
     MDEVS_FPGA_NEWTON = 0x4000,/* Access LPC region */
     MDEVS_CABLE = 0x8000,
+    MDEVS_SOFTWARE = 0x10000, /* Software system char dev */
     MDEVS_TAVOR = (MDEVS_TAVOR_DDR | MDEVS_TAVOR_UAR | MDEVS_TAVOR_CR), MDEVS_ALL = 0xffffffff
 } Mdevs;
 
 typedef enum {
     MACCESS_REG_METHOD_GET = 1,
-    MACCESS_REG_METHOD_SET = 2
+    MACCESS_REG_METHOD_SET = 2,
+    MACCESS_LAST_REG_METHOD = 3
 } maccess_reg_method_t;
 
 typedef enum {
-    AS_ICMD = 3, AS_CR_SPACE = 2, AS_SEMAPHORE = 0xa
+    VCC_INITIALIZED = 0x0,
+    VCC_ICMD_EXT_SPACE_SUPPORTED = 0x1,
+    VCC_CRSPACE_SPACE_SUPPORTED = 0x2,
+    VCC_ICMD_SPACE_SUPPORTED = 0x3,
+    VCC_NODNIC_INIT_SEG_SPACE_SUPPORTED = 0x4,
+    VCC_EXPANSION_ROM_SPACE_SUPPORTED = 0x5,
+    VCC_ND_CRSPACE_SPACE_SUPPORTED = 0x6,
+    VCC_SCAN_CRSPACE_SPACE_SUPPORTED = 0x7,
+    VCC_SEMAPHORE_SPACE_SUPPORTED = 0x8,
+    VCC_MAC_SPACE_SUPPORTED = 0x9,
+} VSCCapCom;
+
+typedef enum {
+    AS_ICMD_EXT = 0x1,
+    AS_CR_SPACE = 0x2,
+    AS_ICMD = 0x3,
+    AS_NODNIC_INIT_SEG = 0x4,
+    AS_EXPANSION_ROM = 0x5,
+    AS_ND_CRSPACE = 0x6,
+    AS_SCAN_CRSPACE = 0x7,
+    AS_SEMAPHORE = 0xa,
+    AS_MAC = 0xf,
+    AS_END
 } address_space_t;
+
 
 typedef struct vf_info_t {
     char dev_name[512];
@@ -254,59 +291,107 @@ typedef struct vf_info_t {
     u_int8_t bus;
     u_int8_t dev;
     u_int8_t func;
-    char** net_devs;      // Null terminated array
-    char** ib_devs;       // Null terminated array
+    char **net_devs;      // Null terminated array
+    char **ib_devs;       // Null terminated array
 } vf_info;
 
 typedef struct dev_info_t {
-        Mdevs type;
-        char dev_name[512];
-        int ul_mode;
+    Mdevs type;
+    char dev_name[512];
+    int ul_mode;
 
-        union {
-                struct {
-                        u_int16_t domain;
-                        u_int8_t bus;
-                        u_int8_t dev;
-                        u_int8_t func;
+    union {
+        struct {
+            u_int16_t domain;
+            u_int8_t bus;
+            u_int8_t dev;
+            u_int8_t func;
 
-                        u_int16_t dev_id;
-                        u_int16_t vend_id;
-                        u_int32_t class_id;
-                        u_int16_t subsys_id;
-                        u_int16_t subsys_vend_id;
+            u_int16_t dev_id;
+            u_int16_t vend_id;
+            u_int32_t class_id;
+            u_int16_t subsys_id;
+            u_int16_t subsys_vend_id;
 
-                        char cr_dev[512];
-                        char conf_dev[512];
-                        char** net_devs;      // Null terminated array
-                        char** ib_devs;       // Null terminated array
-                        char numa_node[4096];     //
-                        vf_info * virtfn_arr;
-                        u_int16_t virtfn_count;
-                } pci;
+            char cr_dev[512];
+            char conf_dev[512];
+            char **net_devs;                  // Null terminated array
+            char **ib_devs;                   // Null terminated array
+            char numa_node[4096];                 //
+            vf_info *virtfn_arr;
+            u_int16_t virtfn_count;
+        } pci;
 
-                struct {
-                        u_int32_t mtusb_serial;
-                        u_int32_t TBD;
-                } usb;
+        struct {
+            u_int32_t mtusb_serial;
+            u_int32_t TBD;
+        } usb;
 
-                struct {
-                        u_int32_t TBD;
-                } ib;
+        struct {
+            u_int32_t TBD;
+        } ib;
 
-                struct {
-                        u_int32_t TBD;
-                } remote;
-        };
+        struct {
+            u_int32_t TBD;
+        } remote;
+    };
 } dev_info;
 
 
 typedef enum {
-    RA_MFPA=0x9010,
-    RA_MFBA=0x9011,
-    RA_MFBE=0x9012,
+    RA_MFPA = 0x9010,
+    RA_MFBA = 0x9011,
+    RA_MFBE = 0x9012,
 } reg_access_t;
+typedef struct dma_lib_hdl_t dma_lib_hdl;
+
+typedef struct icmd_params_t {
+    int icmd_opened;
+    int took_semaphore;
+    int ctrl_addr;
+    int cmd_addr;
+    u_int32_t max_cmd_size;
+    int semaphore_addr;
+    int static_cfg_not_done_addr;
+    int static_cfg_not_done_offs;
+    u_int32_t lock_key;
+    int ib_semaphore_lock_supported;
+    u_int64_t dma_pa;
+    u_int32_t dma_size;
+    int dma_icmd;
+} icmd_params;
+
+typedef struct ctx_params_t {
+    void *fw_cmd_context;
+    void *fw_cmd_func;
+} ctx_params;
+
+typedef struct io_region_t {
+    unsigned int start;
+    unsigned int end;
+} io_region;
+
+typedef struct tools_hcr_params_t {
+    int supp_cr_mbox;     // 1: mbox supported , -1: mbox not supported
+} tools_hcr_params;
+
+// max_reg_size depends on the desired method operated on the register.
+// max_reg_size[<method_enum_value>] will give the relevant max_reg_size.
+// For example max_reg_size[MACCESS_REG_METHOD_GET] will give max_reg_size for Get() method.
+typedef struct access_reg_params_t {
+    int max_reg_size[MACCESS_LAST_REG_METHOD];
+} access_reg_params;
 
 typedef struct mfile_t mfile;
+
+typedef void (*f_mpci_change)        (mfile *mf);
+
+#define VSEC_MIN_SUPPORT_UL(mf) (((mf)->vsec_cap_mask & (1 << VCC_INITIALIZED)) && \
+                                 ((mf)->vsec_cap_mask & (1 << VCC_CRSPACE_SPACE_SUPPORTED)) && \
+                                 ((mf)->vsec_cap_mask & (1 << VCC_ICMD_EXT_SPACE_SUPPORTED)) && \
+                                 ((mf)->vsec_cap_mask & (1 << VCC_SEMAPHORE_SPACE_SUPPORTED)))
+
+// VSEC supported macro
+#define VSEC_SUPPORTED_UL(mf) ((mf)->vsec_supp && VSEC_MIN_SUPPORT_UL(mf))
 
 #endif

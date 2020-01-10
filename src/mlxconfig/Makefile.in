@@ -47,6 +47,7 @@
 #--
 
 
+
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -136,9 +137,8 @@ CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 @ENABLE_OPENSSL_TRUE@am__DEPENDENCIES_2 = $(MLXSIGN_LIB)
-libmlxcfg_a_DEPENDENCIES = $(UTILS_LIB) \
-	$(EXT_LIB_DIR)/sqlite/libsqlite3.a \
-	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
+libmlxcfg_a_DEPENDENCIES = $(UTILS_LIB) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(CMDIF_DIR)/libcmdif.a \
 	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
 	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
 	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(am__DEPENDENCIES_1) \
@@ -152,17 +152,46 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
-am__installdirs = "$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(mlxprivhostlibdir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_mstconfig_OBJECTS = mlxcfg_parser.$(OBJEXT) mlxcfg_ui.$(OBJEXT)
 mstconfig_OBJECTS = $(am_mstconfig_OBJECTS)
 mstconfig_DEPENDENCIES = libmlxcfg.a $(UTILS_LIB) \
-	$(EXT_LIB_DIR)/sqlite/libsqlite3.a \
-	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
-	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
-	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
-	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) $(am__append_5) $(am__DEPENDENCIES_2)
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(CMDIF_DIR)/libcmdif.a ../reg_access/libreg_access.a \
+	$(LAYOUTS_LIB) $(MTCR_DIR)/libmtcr_ul.a \
+	$(DEV_MGT_DIR)/libdev_mgt.a $(COMPS_MGR_DIR)/libfw_comps_mgr.a \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) $(am__append_5) \
+	$(am__DEPENDENCIES_2)
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+SCRIPTS = $(bin_SCRIPTS) $(mlxprivhostlib_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -285,6 +314,9 @@ am__relativize = \
   done; \
   reldir="$$dir2"
 ACLOCAL = @ACLOCAL@
+ADABE_DBS = @ADABE_DBS@
+ADABE_DBS_EXTRA_DIST = @ADABE_DBS_EXTRA_DIST@
+ADABE_TOOLS = @ADABE_TOOLS@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -318,12 +350,17 @@ ENABLE_DC = @ENABLE_DC@
 ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FW_MGR_TOOLS = @FW_MGR_TOOLS@
 GREP = @GREP@
+INIPARSER_CFLAGS = @INIPARSER_CFLAGS@
+INIPARSER_LIBS = @INIPARSER_LIBS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+JSON_CFLAGS = @JSON_CFLAGS@
+JSON_LIBS = @JSON_LIBS@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
 LDL = @LDL@
@@ -336,10 +373,11 @@ LTLIBOBJS = @LTLIBOBJS@
 MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
-MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
-MLXFWUPDATE = @MLXFWUPDATE@
+MSTFLINT_VERSION_STR = @MSTFLINT_VERSION_STR@
 MTCR_CONF_DIR = @MTCR_CONF_DIR@
+MUPARSER_CFLAGS = @MUPARSER_CFLAGS@
+MUPARSER_LIBS = @MUPARSER_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -359,12 +397,15 @@ RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SQLITE_CFLAGS = @SQLITE_CFLAGS@
+SQLITE_LIBS = @SQLITE_LIBS@
 STRIP = @STRIP@
 TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
 TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
+XZ_UTILS_DIR = @XZ_UTILS_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -430,21 +471,26 @@ DEV_MGT_DIR = $(top_srcdir)/dev_mgt
 LAYOUTS_LIB = $(LAYOUTS_DIR)/libtools_layouts.a
 UTILS_LIB = $(USER_DIR)/mft_utils/libmftutils.a
 CMDIF_DIR = $(USER_DIR)/cmdif
-EXT_LIB_DIR = $(USER_DIR)/ext_libs
 MLXSIGN_DIR = $(USER_DIR)/mlxsign_lib
 MLXSIGN_LIB = $(MLXSIGN_DIR)/libmlxsign.a
 COMPS_MGR_DIR = $(USER_DIR)/fw_comps_mgr
+PYTHON_WRAPPER_SCRIPT = ../common/python_wrapper
 SUBDIRS = mlxconfig_dbs
 AM_CPPFLAGS = -I. -I$(USER_DIR) -I$(top_srcdir)/include/mtcr_ul \
 	-I$(MTCR_DIR) -I$(COMMON_DIR) $(WIN64_INC) -I$(LAYOUTS_DIR) \
 	-I$(UTILS_DIR) -I$(DEV_MGT_DIR) -I$(CMDIF_DIR) \
-	-I$(EXT_LIB_DIR)/muparser $(COMPILER_FPIC) $(am__append_2)
+	$(MUPARSER_CFLAGS) $(SQLITE_CFLAGS) $(COMPILER_FPIC) \
+	$(am__append_2)
 
 #get mst device examples and tool name from makefile
 AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe -Wno-deprecated-declarations \
 	$(COMPILER_FPIC) -DDATA_PATH=\"$(pkgdatadir)\" $(am__append_1) \
 	$(am__append_9) -DMLXCFG_NAME=\"mstconfig\" \
 	-DMST_DEV_EXAMPLE=\"04:00.0\" -DMST_DEV_EXAMPLE2=\"05:00.0\"
+MLXPRIVHOST_PYTHON_WRAPPER = mstprivhost
+bin_SCRIPTS = ${MLXPRIVHOST_PYTHON_WRAPPER}
+mlxprivhostlibdir = $(libdir)/mstflint/python_tools/$(MLXPRIVHOST_PYTHON_WRAPPER)
+mlxprivhostlib_SCRIPTS = $(MLXPRIVHOST_PYTHON_WRAPPER).py
 noinst_LTLIBRARIES = libmlxcfg.a
 libmlxcfg_a_SOURCES = mlxcfg_status.h mlxcfg_utils.h mlxcfg_utils.cpp mlxcfg_view.h\
         mlxcfg_expression.h mlxcfg_expression.cpp\
@@ -453,16 +499,14 @@ mlxcfg_db_items.h mlxcfg_db_items.cpp\
         mlxcfg_commander.h mlxcfg_commander.cpp mlxcfg_generic_commander.h mlxcfg_generic_commander.cpp\
         mlxcfg_param_lib.h mlxcfg_param_lib.cpp mlxcfg_4thgen_commander.h mlxcfg_4thgen_commander.cpp
 
-libmlxcfg_a_LIBADD = $(UTILS_LIB) $(EXT_LIB_DIR)/sqlite/libsqlite3.a \
-	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
-	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
-	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
-	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(MLNXOS_PPC_LIBS) \
-	$(LIBSTD_CPP) ${LDL} $(am__append_4) $(am__append_6) \
-	$(am__append_8)
-mstconfig_LDADD = libmlxcfg.a $(UTILS_LIB) \
-	$(EXT_LIB_DIR)/sqlite/libsqlite3.a \
-	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
+libmlxcfg_a_LIBADD = $(UTILS_LIB) $(MUPARSER_LIBS) $(SQLITE_LIBS) \
+	$(CMDIF_DIR)/libcmdif.a ../reg_access/libreg_access.a \
+	$(LAYOUTS_LIB) $(MTCR_DIR)/libmtcr_ul.a \
+	$(DEV_MGT_DIR)/libdev_mgt.a $(COMPS_MGR_DIR)/libfw_comps_mgr.a \
+	$(MLNXOS_PPC_LIBS) $(LIBSTD_CPP) ${LDL} $(am__append_4) \
+	$(am__append_6) $(am__append_8)
+mstconfig_LDADD = libmlxcfg.a $(UTILS_LIB) $(MUPARSER_LIBS) \
+	$(SQLITE_LIBS) $(CMDIF_DIR)/libcmdif.a \
 	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
 	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
 	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(MLNXOS_PPC_LIBS) \
@@ -570,6 +614,76 @@ clean-binPROGRAMS:
 mstconfig$(EXEEXT): $(mstconfig_OBJECTS) $(mstconfig_DEPENDENCIES) $(EXTRA_mstconfig_DEPENDENCIES) 
 	@rm -f mstconfig$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(mstconfig_OBJECTS) $(mstconfig_LDADD) $(LIBS)
+install-binSCRIPTS: $(bin_SCRIPTS)
+	@$(NORMAL_INSTALL)
+	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(bindir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(bindir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
+	done | \
+	sed -e 'p;s,.*/,,;n' \
+	    -e 'h;s|.*|.|' \
+	    -e 'p;x;s,.*/,,;$(transform)' | sed 'N;N;N;s,\n, ,g' | \
+	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1; } \
+	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
+	    if ($$2 == $$4) { files[d] = files[d] " " $$1; \
+	      if (++n[d] == $(am__install_max)) { \
+		print "f", d, files[d]; n[d] = 0; files[d] = "" } } \
+	    else { print "f", d "/" $$4, $$1 } } \
+	  END { for (d in files) print "f", d, files[d] }' | \
+	while read type dir files; do \
+	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
+	     test -z "$$files" || { \
+	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(bindir)$$dir'"; \
+	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(bindir)$$dir" || exit $$?; \
+	     } \
+	; done
+
+uninstall-binSCRIPTS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || exit 0; \
+	files=`for p in $$list; do echo "$$p"; done | \
+	       sed -e 's,.*/,,;$(transform)'`; \
+	dir='$(DESTDIR)$(bindir)'; $(am__uninstall_files_from_dir)
+install-mlxprivhostlibSCRIPTS: $(mlxprivhostlib_SCRIPTS)
+	@$(NORMAL_INSTALL)
+	@list='$(mlxprivhostlib_SCRIPTS)'; test -n "$(mlxprivhostlibdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(mlxprivhostlibdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(mlxprivhostlibdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
+	done | \
+	sed -e 'p;s,.*/,,;n' \
+	    -e 'h;s|.*|.|' \
+	    -e 'p;x;s,.*/,,;$(transform)' | sed 'N;N;N;s,\n, ,g' | \
+	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1; } \
+	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
+	    if ($$2 == $$4) { files[d] = files[d] " " $$1; \
+	      if (++n[d] == $(am__install_max)) { \
+		print "f", d, files[d]; n[d] = 0; files[d] = "" } } \
+	    else { print "f", d "/" $$4, $$1 } } \
+	  END { for (d in files) print "f", d, files[d] }' | \
+	while read type dir files; do \
+	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
+	     test -z "$$files" || { \
+	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(mlxprivhostlibdir)$$dir'"; \
+	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(mlxprivhostlibdir)$$dir" || exit $$?; \
+	     } \
+	; done
+
+uninstall-mlxprivhostlibSCRIPTS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(mlxprivhostlib_SCRIPTS)'; test -n "$(mlxprivhostlibdir)" || exit 0; \
+	files=`for p in $$list; do echo "$$p"; done | \
+	       sed -e 's,.*/,,;$(transform)'`; \
+	dir='$(DESTDIR)$(mlxprivhostlibdir)'; $(am__uninstall_files_from_dir)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -773,10 +887,10 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-recursive
-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS)
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(mlxprivhostlibdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -832,13 +946,13 @@ info: info-recursive
 
 info-am:
 
-install-data-am:
+install-data-am: install-mlxprivhostlibSCRIPTS
 
 install-dvi: install-dvi-recursive
 
 install-dvi-am:
 
-install-exec-am: install-binPROGRAMS
+install-exec-am: install-binPROGRAMS install-binSCRIPTS
 
 install-html: install-html-recursive
 
@@ -878,7 +992,8 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS
+uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
+	uninstall-mlxprivhostlibSCRIPTS
 
 .MAKE: $(am__recursive_targets) install-am install-strip
 
@@ -887,16 +1002,20 @@ uninstall-am: uninstall-binPROGRAMS
 	clean-noinstLTLIBRARIES cscopelist-am ctags ctags-am distclean \
 	distclean-compile distclean-generic distclean-libtool \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-am install-binPROGRAMS install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
+	install install-am install-binPROGRAMS install-binSCRIPTS \
+	install-data install-data-am install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man \
+	install-mlxprivhostlibSCRIPTS install-pdf install-pdf-am \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs installdirs-am maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS
+	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-binSCRIPTS uninstall-mlxprivhostlibSCRIPTS
 
+${MLXPRIVHOST_PYTHON_WRAPPER}: $(PYTHON_WRAPPER_SCRIPT)
+	cp $(PYTHON_WRAPPER_SCRIPT) $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

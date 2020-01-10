@@ -125,8 +125,8 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libmflash_a_LIBADD =
-am_libmflash_a_OBJECTS = mflash.lo mflash_pack_layer.lo \
-	mflash_access_layer.lo
+am_libmflash_a_OBJECTS = mflash.lo mflash_dev_capability.lo \
+	mflash_pack_layer.lo mflash_access_layer.lo
 libmflash_a_OBJECTS = $(am_libmflash_a_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -195,6 +195,9 @@ ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
+ADABE_DBS = @ADABE_DBS@
+ADABE_DBS_EXTRA_DIST = @ADABE_DBS_EXTRA_DIST@
+ADABE_TOOLS = @ADABE_TOOLS@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -228,12 +231,17 @@ ENABLE_DC = @ENABLE_DC@
 ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FW_MGR_TOOLS = @FW_MGR_TOOLS@
 GREP = @GREP@
+INIPARSER_CFLAGS = @INIPARSER_CFLAGS@
+INIPARSER_LIBS = @INIPARSER_LIBS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+JSON_CFLAGS = @JSON_CFLAGS@
+JSON_LIBS = @JSON_LIBS@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
 LDL = @LDL@
@@ -246,10 +254,11 @@ LTLIBOBJS = @LTLIBOBJS@
 MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
-MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
-MLXFWUPDATE = @MLXFWUPDATE@
+MSTFLINT_VERSION_STR = @MSTFLINT_VERSION_STR@
 MTCR_CONF_DIR = @MTCR_CONF_DIR@
+MUPARSER_CFLAGS = @MUPARSER_CFLAGS@
+MUPARSER_LIBS = @MUPARSER_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -269,12 +278,15 @@ RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SQLITE_CFLAGS = @SQLITE_CFLAGS@
+SQLITE_LIBS = @SQLITE_LIBS@
 STRIP = @STRIP@
 TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
 TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
+XZ_UTILS_DIR = @XZ_UTILS_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -332,11 +344,12 @@ top_srcdir = @top_srcdir@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
 AM_CPPFLAGS = -I. -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/tools_layouts -I$(top_srcdir)/reg_access \
-          -I$(top_srcdir)/cmdif -I$(top_srcdir)/tools_res_mgmt
+          -I$(top_srcdir)/cmdif -I$(top_srcdir)/tools_res_mgmt $(COMPILER_FPIC)
 
-AM_CFLAGS = -MD -pipe -Wall -W -DMST_UL -g ${MFLASH_INBAND_FLAG}
+AM_CFLAGS = -MD -pipe -Wall -W -DMST_UL -g ${MFLASH_INBAND_FLAG} $(COMPILER_FPIC)
 noinst_LTLIBRARIES = libmflash.a
 libmflash_a_SOURCES = mflash.c mflash.h\
+			mflash_dev_capability.c mflash_dev_capability.h \
 			mflash_pack_layer.c mflash_pack_layer.h mflash_access_layer.c mflash_access_layer.h\
 			mflash_types.h mlash_common_structs.h
 
@@ -398,6 +411,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mflash.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mflash_access_layer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mflash_dev_capability.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mflash_pack_layer.Plo@am__quote@
 
 .c.o:

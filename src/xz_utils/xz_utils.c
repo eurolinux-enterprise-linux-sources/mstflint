@@ -37,17 +37,18 @@
 #include <lzma.h>
 #include "xz_utils.h"
 
-static int32_t init_encoder(lzma_stream *strm, u_int32_t preset)
+static int32_t init_encoder(lzma_stream *strm, u_int32_t preset, lzma_check check)
 {
     // Initialize the encoder using a preset. Set the integrity to check
     // to CRC64, which is the default in the xz command line tool. If
     // the .xz file needs to be decompressed with XZ Embedded, use
     // LZMA_CHECK_CRC32 instead.
-    lzma_ret ret = lzma_easy_encoder(strm, preset, LZMA_CHECK_CRC64);
+    lzma_ret ret = lzma_easy_encoder(strm, preset, check);
 
     // Return successfully if the initialization went fine.
-    if (ret == LZMA_OK)
+    if (ret == LZMA_OK) {
         return 0;
+    }
 
     // Something went wrong. The possible errors are documented in
     // lzma/container.h (src/liblzma/api/lzma/container.h in the source
@@ -80,11 +81,12 @@ static int32_t init_encoder(lzma_stream *strm, u_int32_t preset)
 static int32_t init_decoder(lzma_stream *strm)
 {
     lzma_ret ret = lzma_stream_decoder(
-            strm, UINT64_MAX, LZMA_CONCATENATED);
+        strm, UINT64_MAX, LZMA_CONCATENATED);
 
     // Return successfully if the initialization went fine.
-    if (ret == LZMA_OK)
+    if (ret == LZMA_OK) {
         return 0;
+    }
 
     // const char *msg;
     switch (ret) {
@@ -103,7 +105,7 @@ static int32_t init_decoder(lzma_stream *strm)
 }
 
 
-static int32_t xcompress(lzma_stream *strm, u_int8_t* inbuf, u_int32_t insz, u_int8_t* outbuf, u_int32_t outsz)
+static int32_t xcompress(lzma_stream *strm, u_int8_t *inbuf, u_int32_t insz, u_int8_t *outbuf, u_int32_t outsz)
 {
     // This will be LZMA_RUN until the end of the input file is reached.
     // This tells lzma_code() when there will be no more input.
@@ -227,8 +229,8 @@ static int32_t xcompress(lzma_stream *strm, u_int8_t* inbuf, u_int32_t insz, u_i
 }
 
 
-static int32_t xpress(int comp_decomp_, u_int32_t preset, u_int8_t* inbuf,
-                        u_int32_t insz, u_int8_t* outbuf, u_int32_t outsz)
+static int32_t xpress(int comp_decomp_, u_int32_t preset, u_int8_t *inbuf,
+                      u_int32_t insz, u_int8_t *outbuf, u_int32_t outsz, lzma_check check)
 {
     int32_t rc;
     u_int32_t sz;
@@ -239,7 +241,7 @@ static int32_t xpress(int comp_decomp_, u_int32_t preset, u_int8_t* inbuf,
     if (comp_decomp_) {
         rc = init_decoder(&strm);
     } else {
-        rc = init_encoder(&strm, preset);
+        rc = init_encoder(&strm, preset, check);
     }
 
     if (rc) {
@@ -251,15 +253,19 @@ static int32_t xpress(int comp_decomp_, u_int32_t preset, u_int8_t* inbuf,
     return sz;
 }
 
-
-int32_t xz_compress(u_int32_t preset, u_int8_t* inbuf, u_int32_t insz, u_int8_t* outbuf, u_int32_t outsz)
+int32_t xz_compress_crc32(u_int32_t preset, u_int8_t* inbuf, u_int32_t insz, u_int8_t* outbuf, u_int32_t outsz)
 {
-    return xpress(0, preset, inbuf, insz, outbuf, outsz);
+    return xpress(0, preset, inbuf, insz, outbuf, outsz, LZMA_CHECK_CRC32);
+}
+
+int32_t xz_compress(u_int32_t preset, u_int8_t *inbuf, u_int32_t insz, u_int8_t *outbuf, u_int32_t outsz)
+{
+    return xpress(0, preset, inbuf, insz, outbuf, outsz, LZMA_CHECK_CRC64);
 }
 
 
-int32_t xz_decompress(u_int8_t* inbuf, u_int32_t insz, u_int8_t* outbuf, u_int32_t outsz)
+int32_t xz_decompress(u_int8_t *inbuf, u_int32_t insz, u_int8_t *outbuf, u_int32_t outsz)
 {
-    return xpress(1, 0, inbuf, insz, outbuf, outsz);
+    return xpress(1, 0, inbuf, insz, outbuf, outsz, LZMA_CHECK_CRC64);
 }
 

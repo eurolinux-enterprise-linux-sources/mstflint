@@ -1,17 +1,23 @@
+%global __remake_config 1
+
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	4.9.0
-Release:	3%{?dist}
+Version:	4.11.0
+Release:	5%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-# Source downloaded from https://github.com/Mellanox/%{name}/releases/download/v%{version}-3/%{name}-%{version}.tar.gz
-# Rename it as mstflint-4.9.0-3.tar.gz
-Source: 	mstflint-4.9.0-3.tar.gz
+Source: 	https://github.com/Mellanox/mstflint/releases/download/v4.11.0-5/mstflint-4.11.0-5.tar.gz
+Patch3: 	extend-buffer.patch
+Patch4: 	add-default-link-flags-for-shared-libraries.patch
+Patch5: 	replace-mlxfwreset-with-mstfwreset-in-mstflint-message.patch
 Url:		https://github.com/Mellanox/mstflint
-BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel, rdma-core-devel
+BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel, gcc-c++, gcc
 BuildRequires:  libcurl-devel, boost-devel, libxml2-devel, openssl-devel
+%if %{__remake_config}
+BuildRequires:  libtool, autoconf, automake
+%endif
 Obsoletes:	openib-mstflint <= 1.4 openib-tvflash <= 0.9.2 tvflash <= 0.9.0
-ExcludeArch:	s390 s390x
+ExcludeArch:	s390 s390x %{arm}
 
 %description
 This package contains firmware update tool, vpd dump and register dump tools
@@ -19,12 +25,16 @@ for network adapters based on Mellanox Technologies chips.
 
 %prep
 %setup -q
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
 find . -type f -iname '*.[ch]' -exec chmod a-x '{}' ';'
 find . -type f -iname '*.cpp' -exec chmod a-x '{}' ';'
 
 %build
-export CFLAGS="$RPM_OPT_FLAGS"
-export CXXFLAGS="$RPM_OPT_FLAGS -std=gnu++98 -Wno-c++11-compat"
+%if %{__remake_config}
+./autogen.sh
+%endif
 %configure --enable-fw-mgr
 %make_build
 
@@ -33,7 +43,7 @@ make DESTDIR=%{buildroot} install
 # Remove the devel files that we don't ship
 rm -fr %{buildroot}%{_includedir}
 find %{buildroot} -type f -name '*.la' -delete
-find %{buildroot} -type f -name libmtcr_ul.a -delete
+find %{buildroot} -type f -name '*.a' -delete
 
 %files
 %doc README
@@ -45,6 +55,19 @@ find %{buildroot} -type f -name libmtcr_ul.a -delete
 %{_mandir}/man1/*
 
 %changelog
+* Thu May  2 2019 Honggang Li <honli@redhat.com> - 4.11.0-5
+- Rebase to latest upstream release v4.11.0-5
+- mstconfig support for prio_tag and ttl_wa
+- Resolves: bz1694703
+
+* Wed Feb 20 2019 Honggang Li <honli@redhat.com> - 4.11.0-3
+- Rebase to latest upstream release v4.11.0-3
+- Resolves: bz1641924
+
+* Fri Feb  1 2019 Honggang Li <honli@redhat.com> - 4.11.0-2
+- Rebase to latest upstream release v4.11.0-2
+- Resolves: bz1641924
+
 * Sun May  6 2018 Honggang Li <honli@redhat.com> - 4.9.0-3
 - Rebase to latest upstream release v4.9.0-3
 - Resolves: bz1541740

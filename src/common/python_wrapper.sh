@@ -19,4 +19,15 @@ export MSTFLINT_LIB_DIR=$mlibdir
 export LD_LIBRARY_PATH=$mlibdir
 export MSTFLINT_BIN_DIR=$mbindir
 EXEC_NAME=`basename $(readlink -f $0)`
-exec /usr/bin/env python $MSTFLINT_PYTHON_TOOLS/$EXEC_NAME/${EXEC_NAME}.py "$@"
+PYTHON_EXEC=`find /usr/bin /bin/ /usr/local/bin -iname 'python*' 2>&1 | grep -e='*python[0-9,.]*' | sort -d | head -n 1`
+which python3 >/dev/null 2>&1
+if test $? -eq 0 ; then
+   PYTHON_EXEC='/usr/bin/env python3'
+else
+    which python2 >/dev/null 2>&1
+    if test $? -eq 0 ; then
+       PYTHON_EXEC='/usr/bin/env python2'
+    fi
+fi
+
+exec $PYTHON_EXEC $MSTFLINT_PYTHON_TOOLS/$EXEC_NAME/${EXEC_NAME}.py "$@"

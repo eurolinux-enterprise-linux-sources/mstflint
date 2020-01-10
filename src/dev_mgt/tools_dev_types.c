@@ -45,6 +45,7 @@
 #include <errno.h>
 #include <reg_access/reg_access.h>
 #include "tools_dev_types.h"
+#include "mflash/mflash_types.h"
 
 enum dm_dev_type {
     DM_UNKNOWN = -1,
@@ -56,32 +57,35 @@ enum dm_dev_type {
 };
 
 struct device_info {
-    dm_dev_id_t      dm_id;
-    u_int16_t        hw_dev_id;
-    int              hw_rev_id;  /* -1 means all revisions match this record */
-    int              sw_dev_id;  /* -1 means all hw ids  match this record */
-    const char*      name;
-    int              port_num;
+    dm_dev_id_t dm_id;
+    u_int16_t hw_dev_id;
+    int hw_rev_id;               /* -1 means all revisions match this record */
+    int sw_dev_id;               /* -1 means all hw ids  match this record */
+    const char *name;
+    int port_num;
     enum dm_dev_type dev_type;
 };
 
-#define DEVID_ADDR                          0xf0014
-#define CABLEID_ADDR                        0x0
-#define SFP_51_ADDR                         92
-#define SFP_51_PAGING_ADDR                  64
+#define DEVID_ADDR                                             0xf0014
+#define CABLEID_ADDR                                           0x0
+#define SFP_DIGITAL_DIAGNOSTIC_MONITORING_IMPLEMENTED_ADDR     92
+#define SFP_PAGING_IMPLEMENTED_INDICATOR_ADDR                  64
 
 #ifdef CABLES_SUPP
-enum dm_dev_type getCableType(u_int8_t id) {
+enum dm_dev_type getCableType(u_int8_t id)
+{
     switch (id) {
-        case 0xd:
-        case 0x11:
-        case 0xe:
-        case 0xc:
-            return DM_QSFP_CABLE;
-        case 0x3:
-            return DM_SFP_CABLE;
-        default:
-            return DM_UNKNOWN;
+    case 0xd:
+    case 0x11:
+    case 0xe:
+    case 0xc:
+        return DM_QSFP_CABLE;
+
+    case 0x3:
+        return DM_SFP_CABLE;
+
+    default:
+        return DM_UNKNOWN;
     }
 }
 #endif
@@ -105,7 +109,7 @@ static struct device_info g_devs_info[] = {
         64,                     //port_num
         DM_SWITCH               //dev_type
     },
-    { 
+    {
         DeviceConnectX2,        //dm_id
         0x190,                  //hw_dev_i
         0xb0,                   //hw_rev_i
@@ -114,7 +118,7 @@ static struct device_info g_devs_info[] = {
         2,                      //port_num
         DM_HCA                  //dev_type
     },
-    {       
+    {
         DeviceConnectX3,        //dm_id
         0x1f5,                  //hw_dev_i
         -1,                     //hw_rev_i
@@ -187,6 +191,24 @@ static struct device_info g_devs_info[] = {
         DM_HCA                  //dev_type
     },
     {
+        DeviceConnectX6,        //dm_id
+        0x20f,                  //hw_dev_i
+        -1,                     //hw_rev_i
+        -1,                     //sw_dev_i
+        "ConnectX6",            //name
+        2,                      //port_num
+        DM_HCA                  //dev_type
+    },
+    {
+        DeviceConnectX6DX,      //dm_id
+        0x212,                  //hw_dev_i
+        -1,                     //hw_rev_i
+        -1,                     //sw_dev_i
+        "ConnectX6DX",          //name
+        2,                      //port_num
+        DM_HCA                  //dev_type
+    },
+    {
         DeviceBlueField,        //dm_id
         0x211,                  //hw_dev_i
         -1,                     //hw_rev_i
@@ -212,8 +234,8 @@ static struct device_info g_devs_info[] = {
         "SwitchIB2",            //name
         36,                     //port_num
         DM_SWITCH               //dev_type
-    },      
-    {       
+    },
+    {
         DeviceCableQSFP,        //dm_id
         0x0d,                   //hw_dev_i
         0,                      //hw_rev_i
@@ -260,11 +282,11 @@ static struct device_info g_devs_info[] = {
     },
     {
         DeviceSpectrum2,        //dm_id
-        0x24f,                  //hw_dev_i
+        0x24e,                  //hw_dev_i
         -1,                     //hw_rev_i
         -1,                     //sw_dev_i
         "Spectrum2",            //name
-        64,                     //port_num
+        128,                    //port_num
         DM_SWITCH               //dev_type
     },
     {
@@ -275,8 +297,8 @@ static struct device_info g_devs_info[] = {
         "DummyDevice",          //name
         2,                      //port_num
         DM_HCA                  //dev_type
-    },          
-    {           
+    },
+    {
         DeviceQuantum,          //dm_id
         0x24d,                  //hw_dev_i
         -1,                     //hw_rev_i
@@ -284,6 +306,15 @@ static struct device_info g_devs_info[] = {
         "Quantum",              //name
         80,                     //port_num
         DM_SWITCH               //dev_type
+    },
+    {
+        DeviceSecureHost,       //dm_id
+        0xcafe,                 //hw_dev_i
+        0xd0,                   //hw_rev_i
+        0,                      //sw_dev_i
+        "Unknown Device",       //name
+        -1,                     //port_num
+        DM_UNKNOWN              //dev_type
     },
     {
         DeviceUnknown,          //dm_id
@@ -298,7 +329,7 @@ static struct device_info g_devs_info[] = {
 
 static const struct device_info* get_entry(dm_dev_id_t type)
 {
-    const struct device_info* p = g_devs_info;
+    const struct device_info *p = g_devs_info;
     while (p->dm_id != DeviceUnknown) {
         if (type == p->dm_id) {
             break;
@@ -310,7 +341,7 @@ static const struct device_info* get_entry(dm_dev_id_t type)
 
 static const struct device_info* get_entry_by_dev_rev_id(u_int32_t hw_dev_id, u_int32_t hw_rev_id)
 {
-    const struct device_info* p = g_devs_info;
+    const struct device_info *p = g_devs_info;
     while (p->dm_id != DeviceUnknown) {
         if (hw_dev_id == p->hw_dev_id) {
             if ((p->hw_rev_id == -1) ||  ((int)hw_rev_id == p->hw_rev_id)) {
@@ -325,10 +356,10 @@ static const struct device_info* get_entry_by_dev_rev_id(u_int32_t hw_dev_id, u_
 /**
  * Returns 0 on success and 1 on failure.
  */
-int dm_get_device_id(mfile* mf,
-                    dm_dev_id_t* ptr_dm_dev_id,
-                    u_int32_t*   ptr_hw_dev_id,
-                    u_int32_t*   ptr_hw_rev)
+int dm_get_device_id(mfile *mf,
+                     dm_dev_id_t *ptr_dm_dev_id,
+                     u_int32_t *ptr_hw_dev_id,
+                     u_int32_t *ptr_hw_rev)
 {
     u_int32_t dword = 0;
     int rc;
@@ -337,16 +368,15 @@ int dm_get_device_id(mfile* mf,
     //Special case: FPGA device:
 #ifndef MST_UL
     if (mf->tp == MST_FPGA_ICMD || mf->tp == MST_FPGA_DRIVER) {
-       *ptr_dm_dev_id = DeviceFPGANewton;
-       *ptr_hw_dev_id = 0xfff;
-       return 0;
+        *ptr_dm_dev_id = DeviceFPGANewton;
+        *ptr_hw_dev_id = 0xfff;
+        return 0;
     }
 #endif
 #ifdef CABLES_SUPP
     if (mf->tp == MST_CABLE) {
         //printf("-D- Getting cable ID\n");
-        if (mread4(mf, CABLEID_ADDR, &dword) != 4)
-        {
+        if (mread4(mf, CABLEID_ADDR, &dword) != 4) {
             //printf("FATAL - crspace read (0x%x) failed: %s\n", DEVID_ADDR, strerror(errno));
             return 1;
         }
@@ -355,7 +385,7 @@ int dm_get_device_id(mfile* mf,
         u_int8_t id = EXTRACT(dword, 0, 8);
         enum dm_dev_type cbl_type = getCableType(id);
         if (cbl_type == DM_QSFP_CABLE) {
-            // Get Byte 2 bit 2 ~ bit 18
+            // Get Byte 2 bit 2 ~ bit 18 (flat_mem : upper memory flat or paged. 0=paging, 1=page 0 only)
             u_int8_t paging = EXTRACT(dword, 18, 1);
             //printf("DWORD: %#x, paging: %d\n", dword, paging);
             if (paging == 0) {
@@ -365,20 +395,18 @@ int dm_get_device_id(mfile* mf,
             }
         } else if (cbl_type == DM_SFP_CABLE) {
             *ptr_dm_dev_id = DeviceCableSFP;
-            if (mread4(mf, SFP_51_ADDR, &dword) != 4)
-            {
-               //printf("FATAL - crspace read (0x%x) failed: %s\n", DEVID_ADDR, strerror(errno));
-               return 1;
+            if (mread4(mf, SFP_DIGITAL_DIAGNOSTIC_MONITORING_IMPLEMENTED_ADDR, &dword) != 4) {
+                //printf("FATAL - crspace read (0x%x) failed: %s\n", DEVID_ADDR, strerror(errno));
+                return 1;
             }
-            u_int8_t byte = EXTRACT(dword, 6, 1); //Byte 92 bit 6
+            u_int8_t byte = EXTRACT(dword, 6, 1); //Byte 92 bit 6 (digital diagnostic monitoring implemented)
             if (byte) {
                 *ptr_dm_dev_id = DeviceCableSFP51;
-                if (mread4(mf, SFP_51_PAGING_ADDR, &dword) != 4)
-                {
-                   //printf("FATAL - crspace read (0x%x) failed: %s\n", DEVID_ADDR, strerror(errno));
-                   return 1;
+                if (mread4(mf, SFP_PAGING_IMPLEMENTED_INDICATOR_ADDR, &dword) != 4) {
+                    //printf("FATAL - crspace read (0x%x) failed: %s\n", DEVID_ADDR, strerror(errno));
+                    return 1;
                 }
-                byte = EXTRACT(dword, 4, 1); //Byte 64 bit 4
+                byte = EXTRACT(dword, 4, 1); //Byte 64 bit 4 (paging implemented indicator)
                 if (byte) {
                     *ptr_dm_dev_id = DeviceCableSFP51Paging;
                 }
@@ -419,9 +447,8 @@ int dm_get_device_id(mfile* mf,
             }
         }
     } else {
-        if (mread4(mf, DEVID_ADDR, &dword) != 4)
-        {
-            //printf("FATAL - crspace read (0x%x) failed: %s\n", DEVID_ADDR, strerror(errno));
+        if (mread4(mf, DEVID_ADDR, &dword) != 4) {
+            printf("FATAL - crspace read (0x%x) failed: %s\n", DEVID_ADDR, strerror(errno));
             return 1;
         }
 
@@ -434,18 +461,18 @@ int dm_get_device_id(mfile* mf,
     if (*ptr_dm_dev_id == DeviceUnknown) {
 
         /* Dev id not matched in array */
-        //printf("FATAL - Can't find devid id\n");
-        return 1; // TODO - fix return vals.
+        printf("FATAL - Can't find device id.\n");
+        return MFE_UNSUPPORTED_DEVICE;
     }
     return 0;
 }
 
 int dm_get_device_id_offline(u_int32_t devid,
                              u_int32_t chip_rev,
-                             dm_dev_id_t* ptr_dev_type)
+                             dm_dev_id_t *ptr_dev_type)
 {
     *ptr_dev_type = get_entry_by_dev_rev_id(devid, chip_rev)->dm_id;
-    return *ptr_dev_type == DeviceUnknown;
+    return *ptr_dev_type == DeviceUnknown ? MFE_UNSUPPORTED_DEVICE: MFE_OK;
 }
 
 const char* dm_dev_type2str(dm_dev_id_t type)
@@ -453,14 +480,14 @@ const char* dm_dev_type2str(dm_dev_id_t type)
     return get_entry(type)->name;
 }
 
-dm_dev_id_t dm_dev_str2type(const char* str)
+dm_dev_id_t dm_dev_str2type(const char *str)
 {
-    const struct device_info* p = g_devs_info;
+    const struct device_info *p = g_devs_info;
     if (!str) {
         return DeviceUnknown;
     }
     while (p->dm_id != DeviceUnknown) {
-        if (strcmp(str,p->name) == 0) {
+        if (strcmp(str, p->name) == 0) {
             return p->dm_id;
         }
         p++;
@@ -473,7 +500,8 @@ int dm_get_hw_ports_num(dm_dev_id_t type)
     return get_entry(type)->port_num;
 }
 
-int dm_dev_is_hca(dm_dev_id_t type) {
+int dm_dev_is_hca(dm_dev_id_t type)
+{
     return get_entry(type)->dev_type == DM_HCA;
 }
 
@@ -504,17 +532,9 @@ u_int32_t dm_get_hw_rev_id(dm_dev_id_t type)
 
 int dm_is_fpp_supported(dm_dev_id_t type)
 {
-    const struct device_info* dp = get_entry(type);
-    if (
-        dp->dm_id == DeviceConnectIB   ||
-        dp->dm_id == DeviceConnectX4   ||
-        dp->dm_id == DeviceConnectX4LX ||
-        dp->dm_id == DeviceConnectX5   ||
-        dp->dm_id == DeviceBlueField     ) {
-        return 1;
-    } else {
-        return 0;
-    }
+    // Function per port is supported only in HCAs that arrived after CX3
+    const struct device_info *dp = get_entry(type);
+    return (dm_is_5th_gen_hca(dp->dev_type) || dm_is_newton(dp->dm_id));
 }
 
 int dm_is_device_supported(dm_dev_id_t type)
@@ -522,9 +542,9 @@ int dm_is_device_supported(dm_dev_id_t type)
     return get_entry(type)->dm_id != DeviceUnknown;
 }
 
-int dm_is_livefish_mode(mfile* mf)
+int dm_is_livefish_mode(mfile *mf)
 {
-    if(!mf || !mf->dinfo) {
+    if (!mf || !mf->dinfo) {
         return 0;
     }
     dm_dev_id_t devid_t = DeviceUnknown;
@@ -537,15 +557,44 @@ int dm_is_livefish_mode(mfile* mf)
     }
     u_int32_t swid = mf->dinfo->pci.dev_id;
     //printf("-D- swid: %#x, devid: %#x\n", swid, devid);
-    if (devid_t == DeviceConnectX2    ||
-        devid_t == DeviceConnectX3    ||
-        devid_t == DeviceConnectX3Pro ||
-        devid_t == DeviceSwitchX        ) {
+    if (dm_is_4th_gen(devid_t) || dm_is_switchx(devid_t)) {
         return (devid == swid - 1);
     } else {
         return (devid == swid);
     }
 
     return 0;
+}
+
+int dm_is_4th_gen(dm_dev_id_t type)
+{
+    return (type == DeviceConnectX2 ||
+            type == DeviceConnectX3 ||
+            type == DeviceConnectX3Pro);
+}
+
+int dm_is_5th_gen_hca(dm_dev_id_t type)
+{
+    return (dm_dev_is_hca(type) && !dm_is_4th_gen(type));
+}
+
+int dm_is_newton(dm_dev_id_t type)
+{
+    return (type == DeviceFPGANewton);
+}
+
+int dm_is_connectib(dm_dev_id_t type)
+{
+    return (type == DeviceConnectIB);
+}
+
+int dm_is_switchx(dm_dev_id_t type)
+{
+    return (type == DeviceSwitchX);
+}
+
+int dm_is_new_gen_switch(dm_dev_id_t type)
+{
+    return (dm_dev_is_switch(type) && !dm_is_switchx(type));
 }
 

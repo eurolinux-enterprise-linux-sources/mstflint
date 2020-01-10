@@ -166,7 +166,8 @@ am__libmtcr_ul_a_SOURCES_DIST = mtcr_ul.c ../mtcr_ul/mtcr_ib.h \
 	../mtcr_ul/mtcr_int_defs.h ../mtcr_ul/mtcr_ib_res_mgt.h \
 	../mtcr_ul/mtcr_ib_res_mgt.c ../mtcr_ul/mtcr_tools_cif.c \
 	../mtcr_ul/mtcr_tools_cif.h ../mtcr_ul/mtcr_ul_icmd_cif.c \
-	../mtcr_ul/mtcr_icmd_cif.h mtcr_ul_com_defs.h mtcr_mf.h \
+	../mtcr_ul/mtcr_icmd_cif.h ../mtcr_ul/mtcr_mem_ops.c \
+	../mtcr_ul/mtcr_mem_ops.h mtcr_ul_com_defs.h mtcr_mf.h \
 	../mtcr_ul/packets_common.c ../mtcr_ul/packets_common.h \
 	../mtcr_ul/packets_layout.c ../mtcr_ul/packets_layout.h \
 	../mtcr_ul/mtcr_ib_ofed.c
@@ -176,6 +177,7 @@ am_libmtcr_ul_a_OBJECTS = libmtcr_ul_a-mtcr_ul.$(OBJEXT) \
 	libmtcr_ul_a-mtcr_ib_res_mgt.$(OBJEXT) \
 	libmtcr_ul_a-mtcr_tools_cif.$(OBJEXT) \
 	libmtcr_ul_a-mtcr_ul_icmd_cif.$(OBJEXT) \
+	libmtcr_ul_a-mtcr_mem_ops.$(OBJEXT) \
 	libmtcr_ul_a-packets_common.$(OBJEXT) \
 	libmtcr_ul_a-packets_layout.$(OBJEXT) $(am__objects_1)
 libmtcr_ul_a_OBJECTS = $(am_libmtcr_ul_a_OBJECTS)
@@ -246,6 +248,9 @@ ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
+ADABE_DBS = @ADABE_DBS@
+ADABE_DBS_EXTRA_DIST = @ADABE_DBS_EXTRA_DIST@
+ADABE_TOOLS = @ADABE_TOOLS@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -279,12 +284,17 @@ ENABLE_DC = @ENABLE_DC@
 ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FW_MGR_TOOLS = @FW_MGR_TOOLS@
 GREP = @GREP@
+INIPARSER_CFLAGS = @INIPARSER_CFLAGS@
+INIPARSER_LIBS = @INIPARSER_LIBS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+JSON_CFLAGS = @JSON_CFLAGS@
+JSON_LIBS = @JSON_LIBS@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
 LDL = @LDL@
@@ -297,10 +307,11 @@ LTLIBOBJS = @LTLIBOBJS@
 MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
-MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
-MLXFWUPDATE = @MLXFWUPDATE@
+MSTFLINT_VERSION_STR = @MSTFLINT_VERSION_STR@
 MTCR_CONF_DIR = @MTCR_CONF_DIR@
+MUPARSER_CFLAGS = @MUPARSER_CFLAGS@
+MUPARSER_LIBS = @MUPARSER_LIBS@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -320,12 +331,15 @@ RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SQLITE_CFLAGS = @SQLITE_CFLAGS@
+SQLITE_LIBS = @SQLITE_LIBS@
 STRIP = @STRIP@
 TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
 TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
+XZ_UTILS_DIR = @XZ_UTILS_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -388,7 +402,8 @@ libmtcr_ul_a_SOURCES = mtcr_ul.c ../mtcr_ul/mtcr_ib.h \
 	../mtcr_ul/mtcr_int_defs.h ../mtcr_ul/mtcr_ib_res_mgt.h \
 	../mtcr_ul/mtcr_ib_res_mgt.c ../mtcr_ul/mtcr_tools_cif.c \
 	../mtcr_ul/mtcr_tools_cif.h ../mtcr_ul/mtcr_ul_icmd_cif.c \
-	../mtcr_ul/mtcr_icmd_cif.h mtcr_ul_com_defs.h mtcr_mf.h \
+	../mtcr_ul/mtcr_icmd_cif.h ../mtcr_ul/mtcr_mem_ops.c \
+	../mtcr_ul/mtcr_mem_ops.h mtcr_ul_com_defs.h mtcr_mf.h \
 	../mtcr_ul/packets_common.c ../mtcr_ul/packets_common.h \
 	../mtcr_ul/packets_layout.c ../mtcr_ul/packets_layout.h \
 	$(am__append_1)
@@ -475,6 +490,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmtcr_ul_a-mtcr_ib_ofed.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmtcr_ul_a-mtcr_ib_res_mgt.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmtcr_ul_a-mtcr_mem_ops.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmtcr_ul_a-mtcr_tools_cif.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmtcr_ul_a-mtcr_ul.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmtcr_ul_a-mtcr_ul_icmd_cif.Po@am__quote@
@@ -557,6 +573,20 @@ libmtcr_ul_a-mtcr_ul_icmd_cif.obj: ../mtcr_ul/mtcr_ul_icmd_cif.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mtcr_ul/mtcr_ul_icmd_cif.c' object='libmtcr_ul_a-mtcr_ul_icmd_cif.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmtcr_ul_a_CFLAGS) $(CFLAGS) -c -o libmtcr_ul_a-mtcr_ul_icmd_cif.obj `if test -f '../mtcr_ul/mtcr_ul_icmd_cif.c'; then $(CYGPATH_W) '../mtcr_ul/mtcr_ul_icmd_cif.c'; else $(CYGPATH_W) '$(srcdir)/../mtcr_ul/mtcr_ul_icmd_cif.c'; fi`
+
+libmtcr_ul_a-mtcr_mem_ops.o: ../mtcr_ul/mtcr_mem_ops.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmtcr_ul_a_CFLAGS) $(CFLAGS) -MT libmtcr_ul_a-mtcr_mem_ops.o -MD -MP -MF $(DEPDIR)/libmtcr_ul_a-mtcr_mem_ops.Tpo -c -o libmtcr_ul_a-mtcr_mem_ops.o `test -f '../mtcr_ul/mtcr_mem_ops.c' || echo '$(srcdir)/'`../mtcr_ul/mtcr_mem_ops.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libmtcr_ul_a-mtcr_mem_ops.Tpo $(DEPDIR)/libmtcr_ul_a-mtcr_mem_ops.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mtcr_ul/mtcr_mem_ops.c' object='libmtcr_ul_a-mtcr_mem_ops.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmtcr_ul_a_CFLAGS) $(CFLAGS) -c -o libmtcr_ul_a-mtcr_mem_ops.o `test -f '../mtcr_ul/mtcr_mem_ops.c' || echo '$(srcdir)/'`../mtcr_ul/mtcr_mem_ops.c
+
+libmtcr_ul_a-mtcr_mem_ops.obj: ../mtcr_ul/mtcr_mem_ops.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmtcr_ul_a_CFLAGS) $(CFLAGS) -MT libmtcr_ul_a-mtcr_mem_ops.obj -MD -MP -MF $(DEPDIR)/libmtcr_ul_a-mtcr_mem_ops.Tpo -c -o libmtcr_ul_a-mtcr_mem_ops.obj `if test -f '../mtcr_ul/mtcr_mem_ops.c'; then $(CYGPATH_W) '../mtcr_ul/mtcr_mem_ops.c'; else $(CYGPATH_W) '$(srcdir)/../mtcr_ul/mtcr_mem_ops.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libmtcr_ul_a-mtcr_mem_ops.Tpo $(DEPDIR)/libmtcr_ul_a-mtcr_mem_ops.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mtcr_ul/mtcr_mem_ops.c' object='libmtcr_ul_a-mtcr_mem_ops.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmtcr_ul_a_CFLAGS) $(CFLAGS) -c -o libmtcr_ul_a-mtcr_mem_ops.obj `if test -f '../mtcr_ul/mtcr_mem_ops.c'; then $(CYGPATH_W) '../mtcr_ul/mtcr_mem_ops.c'; else $(CYGPATH_W) '$(srcdir)/../mtcr_ul/mtcr_mem_ops.c'; fi`
 
 libmtcr_ul_a-packets_common.o: ../mtcr_ul/packets_common.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmtcr_ul_a_CFLAGS) $(CFLAGS) -MT libmtcr_ul_a-packets_common.o -MD -MP -MF $(DEPDIR)/libmtcr_ul_a-packets_common.Tpo -c -o libmtcr_ul_a-packets_common.o `test -f '../mtcr_ul/packets_common.c' || echo '$(srcdir)/'`../mtcr_ul/packets_common.c

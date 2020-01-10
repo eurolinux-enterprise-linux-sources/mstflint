@@ -29,6 +29,7 @@
 # SOFTWARE.
 #--
 
+from __future__ import print_function
 import os
 import sys
 import platform
@@ -51,7 +52,7 @@ try:
             DEV_MGT = CDLL("c_dev_mgt.so")
         except:
             DEV_MGT = CDLL(os.path.join(os.path.dirname(os.path.realpath(__file__)), "c_dev_mgt.so"))
-except Exception, exp:
+except Exception as exp:
     raise DevMgtException("Failed to load shared library c_dev_mgt: %s" % exp)
 
 if DEV_MGT:
@@ -74,10 +75,3 @@ if DEV_MGT:
             return not (rc == 0)
 else:
     raise DevMgtException("Failed to load c_dev_mgt.so/libdev_mgt.dll") 
-
-
-if __name__ == "__main__":
-    mstdev = "/dev/mst/mt523_pciconf0"
-    #mstdev = "/dev/mst/mt4113_pciconf0"
-    devMgt = DevMgt(mstdev)
-    print devMgt.isLivefishMode()

@@ -1,13 +1,14 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(mstflint, 4.9.0, adrianc@mellanox.co.il)
+AC_INIT(mstflint, 4.11.0, adrianc@mellanox.co.il)
 
 AC_DEFINE_UNQUOTED([PROJECT], ["mstflint"], [Define the project name.])
 AC_SUBST([PROJECT])
 
-AC_DEFINE_UNQUOTED([VERSION], ["4.9.0"], [Define the project version.])
+AC_DEFINE_UNQUOTED([VERSION], ["4.11.0"], [Define the project version.])
 AC_SUBST([VERSION])
 
+AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR([README])
 AM_INIT_AUTOMAKE([foreign])
@@ -24,6 +25,9 @@ OS=$(uname -s)
 MTCR_CONF_DIR=""
 LDL=""
 default_en_inband=""
+
+LDFLAGS="${LDFLAGS} -L/usr/lib64 -L/usr/local/lib -L/usr/local/lib64"
+CXXFLAGS="${CXXFLAGS} -isystem /usr/local/include" 
 if test "x$OS" = "xFreeBSD"; then
     AC_MSG_NOTICE(FreeBSD Build)
     MTCR_CONF_DIR="mtcr_freebsd"
@@ -41,7 +45,11 @@ dnl Checks for headers
 AC_CHECK_HEADER(termios.h,[CXXFLAGS="${CXXFLAGS} -DHAVE_TERMIOS_H"])
 TOOLS_CRYPTO=""
 MAD_IFC=""
-MLXFWUPDATE=""
+FW_MGR_TOOLS=""
+XZ_UTILS_DIR=""
+ADABE_TOOLS=""
+ADABE_DBS=""
+ADABE_DBS_EXTRA_DIST=""
 
 COMPILER_FPIC="-fPIC"
 AC_SUBST(COMPILER_FPIC)
@@ -67,10 +75,31 @@ AC_MSG_RESULT($enable_fw_mgr)
 if test "x$enable_fw_mgr" = "xyes"; then
     AC_CHECK_HEADER(curl/curl.h,,AC_MSG_ERROR([cannot find curl/curl.h . this header is needed for compiling fw manager tool]))
     AC_CHECK_HEADER(zlib.h,,AC_MSG_ERROR([cannot find zlib.h . this header is needed for compiling fw manager tool]))
-    AC_CHECK_HEADER(lzma.h,,AC_MSG_ERROR([cannot find lzma.h . this header is needed for compiling fw manager tool]))
     AC_CHECK_LIB(z, uncompress,, AC_MSG_ERROR([cannot find zlib uncompress() function.]))
+    AC_CHECK_HEADER(lzma.h,,AC_MSG_ERROR([Cannot find lzma.h.]))
     AC_CHECK_LIB(boost_regex, regcompA,, AC_MSG_ERROR([cannot find boost_regex regcompA() function. Try re-installing the library...]))
     CURL_INC_DIR=/usr/include/curl/
+fi
+
+# Adabe
+AC_MSG_CHECKING(--enable-adb-generic-tools argument)
+AC_ARG_ENABLE(adb-generic-tools,
+             [  --enable-adb-generic-tools        Enable compiling tools depends on ADABE, i.e. mstreg],
+             [enable_adb_generic_tools="yes"],
+             [enable_adb_generic_tools="no"])
+AC_MSG_RESULT($enable_adb_generic_tools)
+if test "x$enable_adb_generic_tools" = "xyes"; then
+    AC_LANG_PUSH([C++])
+        AC_CHECK_LIB([expat], XML_ParserCreate_MM,
+                [AC_CHECK_HEADERS(expat.h, have_expat=true, have_expat=false)],
+                have_expat=false)
+        if ! $have_expat; then
+        AC_MSG_ERROR([Expat library is missing, please install expat xml parser to continue: expat-devel.]
+                [http://expat.sourceforge.net/])
+        fi
+        AC_CHECK_HEADERS([boost/foreach.hpp], [],
+            [AC_MSG_ERROR([Boost libraries are missing, please install boost to continue.])])
+    AC_LANG_POP([C++])
 fi
 
 AC_SUBST(CURL_INC_DIR)
@@ -130,11 +159,11 @@ if test "x$enable_cs" = "xyes"; then
   TOOLS_CRYPTO="tools_crypto"
 fi
 
-AC_MSG_CHECKING(--enable-openssl argument)
+AC_MSG_CHECKING(openssl argument)
 AC_ARG_ENABLE(openssl,
-            [  --enable-openssl       Enable all openssl features, dependant of openssl library],
-            [enable_openssl="yes"],
-            [enable_openssl="no"])
+            [  --disable-openssl       Disable all openssl features, dependant of openssl library],
+            [enable_openssl=$enableval],
+            [enable_openssl="yes"])
 AC_MSG_RESULT($enable_openssl)
 if test "x$enable_openssl" = "xyes"; then
   AC_CHECK_HEADER(openssl/sha.h,,AC_MSG_ERROR([cannot find openssl/sha.h . remove --enable-openssl to remove this dependaency or install openssl]))
@@ -145,6 +174,20 @@ if test "x$enable_openssl" = "xyes"; then
   TOOLS_CRYPTO="tools_crypto mlxsign_lib"
 fi
 
+AC_MSG_CHECKING(--enable-all-static argument)
+AC_ARG_ENABLE([all_static],
+    AS_HELP_STRING([--enable-all-static], [Enable creating none dynamic executables]))
+
+AS_IF([test "x$enable_all_static" = "xyes"], [
+  if test "x$enable_dc" = "xyes"; then
+    AC_MSG_ERROR([cannot enable all static with enable dc . add --disable-dc to remove dependaency with dynamic zlib])
+  fi
+  if test "x$enable_openssl" = "xyes"; then
+    AC_MSG_ERROR([cannot enable all static with enable openssl . add --disable-openssl to remove dependaency with dynamic openssl])
+  fi
+  LDFLAGS="$LDFLAGS -all-static"
+])
+
 AC_SUBST(TOOLS_CRYPTO)
 AM_CONDITIONAL(ENABLE_OPENSSL, [test "x$enable_openssl" = "xyes" ])
 AM_CONDITIONAL(ENABLE_CS, [test  "x$enable_cs" = "xyes" || test "x$enable_openssl" = "xyes" ])
@@ -152,7 +195,7 @@ AM_CONDITIONAL(ENABLE_CS, [test  "x$enable_cs" = "xyes" || test "x$enable_openss
 AC_ARG_ENABLE([static_libstdcpp],
     AS_HELP_STRING([--enable-static-libstdcpp], [Enable link static to libstdc++]))
 
-AS_IF([test "x$enable_static_libstdcpp" = "xyes"], [
+AS_IF([test "x$enable_static_libstdcpp" = "xyes" -o "x$enable_all_static" = "xyes" ], [
   CXXFLAGS="$CXXFLAGS -static-libstdc++ -static-libgcc"
 ])
 
@@ -163,32 +206,95 @@ AS_IF([test "x$enable_dynamic_ld" = "xyes"], [
   LDFLAGS="$LDFLAGS -Wl,--dynamic-linker=/lib64/ld64.so.2"
 ])
 
-CFLAGS="$CFLAGS -Werror -DMST_UL"
-CXXFLAGS="$CXXFLAGS -Werror -DMST_UL"
+AC_SEARCH_LIBS([iniparser_load], [iniparser], [INIPARSER_SYSTEM_AVAILABLE="yes"],[
+    INIPARSER_SYSTEM_AVAILABLE="no"
+    INIPARSER_CFLAGS='-I$(top_srcdir)/ext_libs/iniParser'
+    AC_SUBST(INIPARSER_CFLAGS)
+    INIPARSER_LIBS='$(top_builddir)/ext_libs/iniParser/libiniparser.a'
+    AC_SUBST(INIPARSER_LIBS)
+])
+AM_CONDITIONAL([USE_LOCAL_INIPARSER], [test "$INIPARSER_SYSTEM_AVAILABLE" = no])
+AS_IF([test "x$INIPARSER_SYSTEM_AVAILABLE" = "xyes" ], [
+    CXXFLAGS="$CXXFLAGS -DHAVE_INI_PARSER"
+])
+
+AC_SEARCH_LIBS([json_object_get], [json-c jason], [JSON_SYSTEM_AVAILABLE="yes"],[
+    JSON_SYSTEM_AVAILABLE="no"
+    JSON_CFLAGS='-I$(top_srcdir)/ext_libs/json'
+    AC_SUBST(JSON_CFLAGS)
+    JSON_LIBS='$(top_builddir)/ext_libs/json/libjson.a'
+    AC_SUBST(JSON_LIBS)
+])
+AM_CONDITIONAL([USE_LOCAL_JSON], [test "$JSON_SYSTEM_AVAILABLE" = no])
+
+AC_SEARCH_LIBS([mupCreateVar], [muparser], [MUPARSER_SYSTEM_AVAILABLE="yes"],[
+    MUPARSER_SYSTEM_AVAILABLE="no"
+    MUPARSER_CFLAGS='-I$(top_srcdir)/ext_libs/muparser'
+    AC_SUBST(MUPARSER_CFLAGS)
+    MUPARSER_LIBS='$(top_builddir)/ext_libs/muparser/libmuparser.a'
+    AC_SUBST(MUPARSER_LIBS)
+])
+AM_CONDITIONAL([USE_LOCAL_MUPARSER], [test "$MUPARSER_SYSTEM_AVAILABLE" = no])
+
+AC_SEARCH_LIBS([sqlite3_initialize], [sqlite3], [SQLITE_SYSTEM_AVAILABLE="yes"],[
+    SQLITE_SYSTEM_AVAILABLE="no"
+    SQLITE_CFLAGS='-I$(top_srcdir)/ext_libs/sqlite'
+    AC_SUBST(SQLITE_CFLAGS)
+    SQLITE_LIBS='$(top_builddir)/ext_libs/sqlite/libsqlite3.a'
+    AC_SUBST(SQLITE_LIBS)
+])
+AM_CONDITIONAL([USE_LOCAL_SQLITE], [test "$SQLITE_SYSTEM_AVAILABLE" = no])
+
+CFLAGS="$CFLAGS -DMST_UL"
+CXXFLAGS="$CXXFLAGS -DMST_UL"
+
+AM_CFLAGS="-Wall"
+AM_CXXFLAGS="-Wall"
 
 AC_CONFIG_FILES( mstflint.spec )
 
-#Check for new ignore flags needed for GCC >= 7
-AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough], [CXXFLAGS="$CXXFLAGS -Wno-implicit-fallthrough"], [], [])
+# We save and restore CFLAGS, after adding Wall and Werror
+# because AX_CHECK_COMPILE_FLAG doesn't work properly without it
+
+# C related ignores
+OLD_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS -Wall -Werror"
 AX_CHECK_COMPILE_FLAG([-Wno-format-overflow], [CFLAGS="$CFLAGS -Wno-format-overflow"], [], [])
 AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough], [CFLAGS="$CFLAGS -Wno-implicit-fallthrough"], [], [])
-AX_CHECK_COMPILE_FLAG([-Wno-format-overflow], [CXXFLAGS="$CXXFLAGS -Wno-format-overflow"], [], [])
+AX_CHECK_COMPILE_FLAG([-Wno-cast-function-type], [CFLAGS="$CFLAGS -Wno-cast-function-type"], [], [])
+CFLAGS="$OLD_CFLAGS"
 
+# C++ related ignores
+OLD_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -Wall -Werror"
+AC_LANG_PUSH([C++])
+AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough], [CXXFLAGS="$CXXFLAGS -Wno-implicit-fallthrough"], [], [])
+AX_CHECK_COMPILE_FLAG([-Wno-format-overflow], [CXXFLAGS="$CXXFLAGS -Wno-format-overflow"], [], [])
+AX_CHECK_COMPILE_FLAG([-Wno-cast-function-type], [CXXFLAGS="$CXXFLAGS -Wno-cast-function-type"], [], [])
+AX_CHECK_COMPILE_FLAG([-Wno-class-memaccess], [CXXFLAGS="$CXXFLAGS -Wno-class-memaccess"], [], [])
+AC_LANG_POP([C++])
+CXXFLAGS="$OLD_CXXFLAGS"
 
 TOOLS_BUILD_TIME=`date  +"%b %d %Y\, %H:%M:%S"`
 AC_SUBST(TOOLS_BUILD_TIME)
 
-AC_ARG_VAR(MFT_VERSION_STR, The MSTFLINT version)
-if test x"$MFT_VERSION_STR" == x; then
-    MFT_VERSION_STR="$PACKAGE_STRING"
+AC_ARG_VAR(MSTFLINT_VERSION_STR, The MSTFLINT version)
+if test x"$MSTFLINT_VERSION_STR" == x; then
+    MSTFLINT_VERSION_STR="$PACKAGE_STRING"
 fi
-AC_SUBST(MFT_VERSION_STR)
+
+AC_SUBST(MSTFLINT_VERSION_STR)
+AC_DEFINE([MSTFLINT_VERSION_STR], [], [The MSTFLINT version])
+AC_DEFINE_UNQUOTED(MSTFLINT_VERSION_STR, "$MSTFLINT_VERSION_STR")
+
 
 AC_ARG_VAR(TOOLS_GIT_SHA, The MSTFLINT tree git sha hash version)
 if test x"$TOOLS_GIT_SHA" == x; then
     TOOLS_GIT_SHA="N/A"
 fi
 AC_SUBST(TOOLS_GIT_SHA)
+AC_DEFINE([TOOLS_GIT_SHA], [], [The MSTFLINT tree git sha hash version])
+AC_DEFINE_UNQUOTED(TOOLS_GIT_SHA, "$TOOLS_GIT_SHA")
 
 AS_IF([test "x$enable_cs" = "xyes" || test "x$enable_openssl" = "xyes"], [
         AC_CONFIG_FILES(tools_crypto/Makefile)
@@ -198,19 +304,43 @@ AS_IF([test "x$enable_openssl" = "xyes"], [
         AC_CONFIG_FILES(mlxsign_lib/Makefile)
     ])
 
+if [ test "x$enable_openssl" = "xno" ] && \
+    [ test "x$enable_fw_mgr" = "xyes" ] ; then
+    AC_MSG_ERROR([--enable-fw-mgr cannot be used with --disabled-openssl.])
+fi
+
 AS_IF([test "x$enable_fw_mgr" = "xyes"], [
         AC_CONFIG_FILES(mlxfwupdate/Makefile)
-        AC_CONFIG_FILES(libmfa/Makefile)
-        AC_CONFIG_FILES(xz_utils/Makefile)
         AC_CONFIG_FILES(ext_libs/iniParser/Makefile)
-        AC_CONFIG_FILES(ext_libs/json/Makefile)
-        AC_CONFIG_FILES(ext_libs/minixz/Makefile)
-        MLXFWUPDATE="libmfa xz_utils mlxfwupdate"
+        AC_CONFIG_FILES(mlxarchive/Makefile)
+        FW_MGR_TOOLS="mlxfwupdate mlxarchive"
     ])
     
-AC_SUBST(MLXFWUPDATE)
+AC_SUBST(FW_MGR_TOOLS)
 
+AS_IF([test "x$enable_adb_generic_tools" = "xyes"], [
+        AC_CONFIG_FILES(adb_parser/Makefile)
+        AC_CONFIG_FILES(tools_layouts/adb/Makefile)
+        AC_CONFIG_FILES(tools_layouts/adb/prm/Makefile)
+        AC_CONFIG_FILES(tools_layouts/adb/prm/hca/Makefile)
+        AC_CONFIG_FILES(tools_layouts/adb/prm/hca/ext/Makefile)
+        AC_CONFIG_FILES(tools_layouts/adb/prm/switch/Makefile)
+        AC_CONFIG_FILES(tools_layouts/adb/prm/switch/ext/Makefile)
+        AC_CONFIG_FILES(mlxreg/Makefile)
+        ADABE_TOOLS="adb_parser mlxreg"
+        ADABE_DBS="adb"
+        ADABE_DBS_EXTRA_DIST="adb/prm/hca/ext/*.adb adb/prm/switch/ext/*.adb"
+    ])
 
+AS_IF([test "x$enable_fw_mgr" = "xyes" || test "x$enable_adb_generic_tools" = "xyes"], [
+        AC_CONFIG_FILES(xz_utils/Makefile)
+        XZ_UTILS_DIR="xz_utils"
+    ])
+
+AC_SUBST(ADABE_TOOLS)
+AC_SUBST(ADABE_DBS)
+AC_SUBST(ADABE_DBS_EXTRA_DIST)
+AC_SUBST(XZ_UTILS_DIR)
 
 if test "x$OS" = "xFreeBSD"; then
     AC_MSG_NOTICE(FreeBSD MTCR)
@@ -220,8 +350,8 @@ else
     AC_CONFIG_FILES(mtcr_ul/Makefile)
 fi
 
-AC_OUTPUT( Makefile common/Makefile mft_utils/Makefile mtcr_py/Makefile ext_libs/Makefile ext_libs/sqlite/Makefile ext_libs/muparser/Makefile dev_mgt/Makefile tools_layouts/Makefile reg_access/Makefile \
-        cmdif/Makefile tools_res_mgmt/Makefile mlxconfig/Makefile mlxconfig/mlxconfig_dbs/Makefile mflash/Makefile mlxfwops/Makefile mlxfwops/lib/Makefile cmdparser/Makefile flint/Makefile \
- 		small_utils/Makefile small_utils/mlxfwresetlib/Makefile mstdump/Makefile mstdump/crd_lib/Makefile mstdump/crd_main/Makefile mstdump/mstdump_dbs/Makefile mvpd/Makefile \
- 		 fw_comps_mgr/Makefile mad_ifc/Makefile )
+AC_OUTPUT( Makefile common/Makefile mft_utils/Makefile mtcr_py/Makefile ext_libs/Makefile ext_libs/sqlite/Makefile ext_libs/muparser/Makefile ext_libs/json/Makefile ext_libs/minixz/Makefile dev_mgt/Makefile \
+        tools_layouts/Makefile reg_access/Makefile cmdif/Makefile libmfa/Makefile tools_res_mgmt/Makefile mlxconfig/Makefile mlxconfig/mlxconfig_dbs/Makefile mflash/Makefile mlxfwops/Makefile mlxfwops/lib/Makefile cmdparser/Makefile \
+        flint/Makefile small_utils/Makefile small_utils/mlxfwresetlib/Makefile mstdump/Makefile mstdump/crd_lib/Makefile mstdump/crd_main/Makefile mstdump/mstdump_dbs/Makefile mvpd/Makefile \
+        fw_comps_mgr/Makefile mad_ifc/Makefile tracers/Makefile tracers/fwtrace/Makefile )
 

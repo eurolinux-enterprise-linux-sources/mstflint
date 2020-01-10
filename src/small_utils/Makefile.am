@@ -32,8 +32,8 @@
 
 PYTHON_WRAPPER_SCRIPT = ../common/python_wrapper
 
-AM_CPPFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd
-AM_CFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd
+AM_CPPFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd $(COMPILER_FPIC)
+AM_CFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd $(COMPILER_FPIC)
 
 LDADD= $(top_srcdir)/${MTCR_CONF_DIR}/libmtcr_ul.a ${LDL}
 
@@ -41,7 +41,8 @@ bin_PROGRAMS = mstmread \
 					mstmwrite \
 					mstmcra \
 					mstmtserver \
-					mstvpd
+					mstvpd \
+					mstcongestion
 					
 bin_SCRIPTS = mstfwreset
 
@@ -51,6 +52,14 @@ mstmwrite_SOURCES = mwrite.c
 
 mstvpd_SOURCES = vpd.c
 mstvpd_LDADD = $(top_srcdir)/mvpd/libmvpd.a $(top_srcdir)/${MTCR_CONF_DIR}/libmtcr_ul.a ${LDL}
+
+mstcongestion_SOURCES = congestion.cpp
+mstcongestion_LDADD = $(top_srcdir)/cmdif/libcmdif.a \
+					  $(top_srcdir)/dev_mgt/libdev_mgt.a \
+                      $(top_srcdir)/reg_access/libreg_access.a \
+                      $(top_srcdir)/tools_layouts/libtools_layouts.a \
+                      $(top_srcdir)/cmdparser/libcmdparser.a \
+                      $(top_srcdir)/${MTCR_CONF_DIR}/libmtcr_ul.a ${LDL}
 
 mstmcra_SOURCES  = mcra.c
 
@@ -62,5 +71,5 @@ MSTFWRESET_PYTHON_WRAPPER=mstfwreset
 ${MSTFWRESET_PYTHON_WRAPPER}: $(PYTHON_WRAPPER_SCRIPT)
 	cp $(PYTHON_WRAPPER_SCRIPT) $@
 mstfwresetlibdir=$(libdir)/mstflint/python_tools/$(MSTFWRESET_PYTHON_WRAPPER)
-mstfwresetlib_DATA = $(MSTFWRESET_PYTHON_WRAPPER).py
+mstfwresetlib_SCRIPTS = $(MSTFWRESET_PYTHON_WRAPPER).py
 
