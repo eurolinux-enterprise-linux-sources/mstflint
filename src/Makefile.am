@@ -1,46 +1,38 @@
-bin_PROGRAMS = mstmread \
-					mstmwrite \
-					mstmcra \
-					mstflint \
-					mstregdump \
-					mstvpd
+#--
+# Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+# 
+# This software is available to you under a choice of one of two
+# licenses.  You may choose to be licensed under the terms of the GNU
+# General Public License (GPL) Version 2, available from the file
+# COPYING in the main directory of this source tree, or the
+# OpenIB.org BSD license below:
+# 
+#     Redistribution and use in source and binary forms, with or
+#     without modification, are permitted provided that the following
+#     conditions are met:
+# 
+#      - Redistributions of source code must retain the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer.
+# 
+#      - Redistributions in binary form must reproduce the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer in the documentation and/or other materials
+#        provided with the distribution.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#--
 
-bin_SCRIPTS = hca_self_test.ofed
-					
-mstmread_SOURCES = mread.c mtcr.h
-
-mstmwrite_SOURCES = mwrite.c mtcr.h
-
-mstflint_SOURCES = flint.cpp mtcr.h mflash.h mflash.c tools_version.h
-
-mstflint_LIBS = @mstflint_LIBS@
-mstflint_CFLAGS   = -DNO_INBAND_ACCESS
-mstflint_CXXFLAGS = -DDEV_MST_EXAMPLE1=\"03:00.0\" -DDEV_MST_EXAMPLE2=\"mlx4_0\"
-mstflint_CXXFLAGS += @mstflint_CXXFLAGS@
-
-mstregdump_SOURCES = mstdump.c mtcr.h \
-					 tools_dev_types.h \
-					 tools_dev_types.c \
-                     MT23108.crb \
-                     MT25204.crb \
-                     MT25208.crb \
-                     MT25408B0.crb \
-                     MT25408.crb \
-                     MT47396.crb \
-                     MT48436.crb \
-                     MT64102.crb \
-                     MT64102safe.crb \
-                     MT58100.crb \
-                     MT2750.crb \
-                     bit_slice.h
-
-mstvpd_SOURCES = vpd.c
-
-mstmcra_SOURCES  = mcra.c mtcr.h
-
-mstflintinclude_HEADERS = mtcr.h
-mstflintincludedir = @includedir@/mtcr_ul
+SUBDIRS = dev_mgt mflash flint small_utils mstdump 
 
 EXTRA_DIST = \
 	mstflint.spec \
-    hca_self_test.ofed
+	small_utils/hca_self_test.ofed \
+	common/gitversion.h

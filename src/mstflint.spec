@@ -1,18 +1,18 @@
 Summary: Mellanox firmware burning application
 Name: mstflint
-Version: 1.4
-Release: 1.18.g1adcfbf
+Version: 3.0
+Release: 0.6.g6961daa
 License: GPL/BSD
-Url: http://openib.org/
+Url: http://openfabrics.org
 Group: System Environment/Base
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}
-Source: http://www.openfabrics.org/downloads/mstflint-1.4-1.18.g1adcfbf.tar.gz
+Source: http://www.openfabrics.org/downloads/mstflint-3.0-0.6.g6961daa.tar.gz
 ExclusiveArch: i386 i486 i586 i686 x86_64 ia64 ppc ppc64
 BuildRequires: zlib-devel
 
 %description
-This package contains a tool for burning updated firmware on to
-Mellanox manufactured InfiniBand adapters.
+This package contains firmware update tool, vpd dump and register dump tools
+for network adapters based on Mellanox Technologies chips.
 
 %prep
 %setup -q
@@ -36,12 +36,18 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/mstmwrite
 %{_bindir}/mstflint
 %{_bindir}/mstregdump
+%{_bindir}/mstmtserver
 %{_bindir}/mstvpd
 %{_bindir}/mstmcra
 %{_bindir}/hca_self_test.ofed
 %{_includedir}/mtcr_ul/mtcr.h
+%{_datadir}/mstflint
 
 %changelog
+
+* Wed Mar 20 2013 Oren Kladnitsky <orenk@dev.mellanox.co.il>
+   MFT 3.0.0
+
 * Thu Dec  4 2008 Oren Kladnitsky <orenk@dev.mellanox.co.il>
    Added hca_self_test.ofed installation
    

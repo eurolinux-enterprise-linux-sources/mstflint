@@ -1,10 +1,10 @@
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	1.4
-Release:	6%{?dist}
+Version:	3.0
+Release:	0.6.g6961daa.1%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-Source:		http://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.19.redhat.tar.gz
+Source:		http://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-0.6.g6961daa.tar.gz
 Url:		http://www.openfabrics.org
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:	libstdc++-devel, zlib-devel
@@ -24,16 +24,14 @@ export CFLAGS="$RPM_OPT_FLAGS"
 make
 
 %install
-rm -rf ${RPM_BUILD_ROOT}
-install -D -m 0755 mstmread $RPM_BUILD_ROOT%{_bindir}/mstmread
-install -D -m 0755 mstmwrite $RPM_BUILD_ROOT%{_bindir}/mstmwrite
-install -D -m 0755 mstflint $RPM_BUILD_ROOT%{_bindir}/mstflint
-install -D -m 0755 mstregdump $RPM_BUILD_ROOT%{_bindir}/mstregdump
-install -D -m 0755 mstvpd $RPM_BUILD_ROOT%{_bindir}/mstvpd
-#install -D -m 0644 mtcr.h       $RPM_BUILD_ROOT%{_includedir}/mtcr.h
+rm -rf %{buildroot}
+make DESTDIR=%{buildroot} install
+# Remove the devel files that we don't ship
+rm -fr %{buildroot}%{_includedir}
+rm -fr %{buildroot}%{_datadir}
 
 %clean
-rm -rf ${RPM_BUILD_ROOT}
+rm -rf %{buildroot}
 
 %files
 %defattr(-, root, root)
@@ -41,6 +39,15 @@ rm -rf ${RPM_BUILD_ROOT}
 %_bindir/*
 
 %changelog
+* Fri Aug 16 2013 Doug Ledford <dledford@redhat.com> - 3.0-0.6.g6961daa.1
+- Update to newer tarball that resolves licensing issues with the last
+  tarball
+- Related: bz818183
+
+* Fri Aug 09 2013 Doug Ledford <dledford@redhat.com> - 3.0-0.5.gff93670.1
+- Update to latest upstream version, which includes ConnectIB support
+- Resolves: bz818183
+
 * Tue Jan 31 2012 Doug Ledford <dledford@redhat.com> - 1.4-6
 - Turns out that the previous tarball was full of cruft that upstream should
   have never let make its way into the tarball.  I had to clean the tarball
