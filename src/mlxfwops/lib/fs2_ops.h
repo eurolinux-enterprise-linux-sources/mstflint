@@ -57,7 +57,7 @@ public:
     virtual bool FwDeleteRom(bool ignoreProdIdCheck, ProgressCallBack progressFunc=(ProgressCallBack)NULL);
 
     // virtual bool FwSetGuids(std::vector<guid_t>& userGuids, std::vector<guid_t>& userMacs, bool updateCrc=true, PrintCallBack callBackFunc=(PrintCallBack)NULL);
-    virtual bool FwSetGuids(sg_params_t& sgParam, PrintCallBack callBackFunc, ProgressCallBack progressFunc);
+    virtual bool FwSetGuids(sg_params_t& sgParam, PrintCallBack callBackFunc=(PrintCallBack)NULL, ProgressCallBack progressFunc=(ProgressCallBack)NULL);
 
     virtual bool FwSetMFG(fs3_uid_t baseGuid, PrintCallBack callBackFunc=(PrintCallBack)NULL);
     virtual bool FwSetMFG(guid_t baseGuid, PrintCallBack callBackFunc=(PrintCallBack)NULL);
@@ -100,7 +100,8 @@ private:
         II_CONFIG_INFO        = 16,
         II_TLVS_FORMAT        = 17,
         II_TRACER_HASH        = 18,
-        II_ConfigArea        = 19,
+        II_ConfigArea         = 19,
+        II_PSInfo             = 20,
         II_Last,              // Mark the end of used tag ids
         II_End                = 0xff
     };

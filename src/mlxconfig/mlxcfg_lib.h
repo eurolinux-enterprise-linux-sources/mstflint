@@ -1,5 +1,4 @@
-/*
- * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+/* Copyright (c) 2013 Mellanox Technologies Ltd.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -29,12 +28,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- */
-/*
- * mlxcfg_lib.h
+ *  Version: $Id$
  *
- *  Created on: Feb 17, 2014
- *      Author: adrianc
  */
 
 #ifndef MLXCFG_LIB_H_
@@ -44,40 +39,11 @@
 #include <utility>
 
 #include <mtcr.h>
+#include <errmsg.h>
+#include <tools_dev_types.h>
 
-#include "errmsg.h"
-
-
-#define MLXCFG_UNKNOWN 0xffffffff
-
-#define WOL_TYPE 0x10
-#define SRIOV_TYPE 0x11
-#define VPI_TYPE 0x12
-#define BAR_SIZE_TYPE 0x13
-
-
-typedef enum {
-    Mct_Sriov = 0,
-    Mct_Wol_P1,
-    Mct_Wol_P2,
-    Mct_Vpi_P1,
-    Mct_Vpi_P2,
-    Mct_Bar_Size,
-    Mct_Last
-} mlxCfgType;
-
-typedef enum {
-    Mcp_Sriov_En = 0,
-    Mcp_Num_Of_Vfs,
-    Mcp_Wol_Magic_En_P1,
-    Mcp_Wol_Magic_En_P2,
-    Mcp_Link_Type_P1,
-    Mcp_Link_Type_P2,
-    Mcp_Log_Bar_Size,
-    Mcp_Last
-} mlxCfgParam;
-
-typedef std::pair<mlxCfgParam, u_int32_t> cfgInfo;
+#include "mlxcfg_status.h"
+#include "mlxcfg_param_lib.h"
 
 class MlxCfgOps : public ErrMsg {
 public:
@@ -97,6 +63,10 @@ public:
     int setCfg(mlxCfgParam cfgParam, u_int32_t val);
     int setCfg(const std::vector<cfgInfo>& infoVec);
 
+    int setRawCfg(std::vector<u_int32_t> rawTlvVec);
+
+    int dumpRawCfg(std::vector<u_int32_t> rawTlvVec, std::string& tlvDump);
+
     int invalidateCfgs();
 
     // Set/Un-Set ignore limits for all configurations
@@ -106,137 +76,25 @@ public:
     // Set/Un-Set Ignore limits per configuration
     // Adrianc: TBD
 
+    const char* loadConfigurationGetStr();
+
 private:
-    class CfgParams : public ErrMsg
-    {
-    public:
-        CfgParams(mlxCfgType t=Mct_Last, u_int32_t tlvT=0);
-        virtual ~CfgParams() {}
-
-        virtual void setParam(mlxCfgParam paramType, u_int32_t val) = 0;
-        virtual u_int32_t getParam(mlxCfgParam paramType) = 0;
-
-        virtual int getDefaultAndFromDev(mfile* mf);
-        virtual int getFromDev(mfile* mf) = 0;
-        virtual int setOnDev(mfile* mf, bool ignoreCheck=false) = 0;
-        virtual int getDefaultParams(mfile* mf) = 0;
-
-        void setIgnoreSoftLimits(bool val);
-        void setIgnoreHardLimits(bool val);
-
-        mlxCfgType type;
-        u_int32_t tlvType;
-    protected:
-        // param validadion methods, only checkCfg shuold be called
-        virtual bool checkCfg(mfile* mf=NULL);
-        virtual bool hardLimitCheck() = 0;
-        virtual bool softLimitCheck(mfile* mf=NULL);
-
-        // get default parameters for configuration
-        int getDefaultParams4thGen(mfile* mf, struct tools_open_query_def_params_global* global_params);
-        int getDefaultParams4thGen(mfile* mf, int port, struct tools_open_query_def_params_per_port* port_params);
-
-        bool _updated; // set true on get and false on set
-        bool _ignoreSoftLimits; // soft limits checks will not be performed for configuration
-        bool _ignoreHardLimits; // hard limits checks will not be performed
-    };
-
-    class SriovParams : public CfgParams
-    {
-    public:
-        SriovParams() : CfgParams(Mct_Sriov, SRIOV_TYPE) , _sriovEn(MLXCFG_UNKNOWN), _numOfVfs(MLXCFG_UNKNOWN), _maxVfs(1) {}
-        ~SriovParams() {};
-
-        virtual void setParam(mlxCfgParam paramType, u_int32_t val);
-        virtual u_int32_t getParam(mlxCfgParam paramType);
-
-        virtual int getFromDev(mfile* mf);
-        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
-        virtual int getDefaultParams(mfile* mf);
-
-    private:
-        virtual bool hardLimitCheck();
-        virtual bool softLimitCheck(mfile* mf=NULL);
-        int updateMaxVfs(mfile* mf);
-
-        u_int32_t _sriovEn;
-        u_int32_t _numOfVfs;
-        u_int32_t _maxVfs;
-    };
-
-    class WolParams : public CfgParams
-    {
-    public:
-        WolParams(int port) : CfgParams(port == 1 ? Mct_Wol_P1 : Mct_Wol_P2, WOL_TYPE), _port(port), _wolMagicEn(MLXCFG_UNKNOWN) {}
-        ~WolParams() {}
-
-        virtual void setParam(mlxCfgParam paramType, u_int32_t val);
-        virtual u_int32_t getParam(mlxCfgParam paramType);
-
-        virtual int getFromDev(mfile* mf);
-        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
-        virtual int getDefaultParams(mfile* mf);
-
-    private:
-        virtual bool hardLimitCheck();
-        // Wake on magic packet (atm this is the only mode which is supported)
-        int _port;
-        u_int32_t _wolMagicEn;
-    };
-
-    class VpiParams : public CfgParams
-    {
-    public:
-        VpiParams(int port) : CfgParams(port == 1 ? Mct_Vpi_P1 : Mct_Vpi_P2, VPI_TYPE), _port(port), _linkType(MLXCFG_UNKNOWN) {}
-        ~VpiParams() {}
-
-        virtual void setParam(mlxCfgParam paramType, u_int32_t val);
-        virtual u_int32_t getParam(mlxCfgParam paramType);
-
-        virtual int getFromDev(mfile* mf);
-        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
-        virtual int getDefaultParams(mfile* mf);
-
-    private:
-        virtual bool hardLimitCheck();
-
-        int _port;
-        u_int32_t _linkType;
-    };
-
-    class BarSzParams : public CfgParams
-    {
-    public:
-        BarSzParams() : CfgParams(Mct_Bar_Size, BAR_SIZE_TYPE) ,_maxLogBarSz(1), _logBarSz(MLXCFG_UNKNOWN) {}
-        ~BarSzParams() {};
-
-        virtual void setParam(mlxCfgParam paramType, u_int32_t val);
-        virtual u_int32_t getParam(mlxCfgParam paramType);
-
-        virtual int getFromDev(mfile* mf);
-        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
-        virtual int getDefaultParams(mfile* mf);
-
-    private:
-        virtual bool hardLimitCheck();
-        virtual bool softLimitCheck(mfile* mf=NULL);
-        int getDefaultBarSz(mfile* mf);
-        u_int32_t _maxLogBarSz;
-        u_int32_t _logBarSz;
-
-    };
-
-
     int openComChk();
     int supportsToolsHCR();
+    int supportsNVData();
     bool isLegal(mlxCfgType cfg);
     bool isLegal(mlxCfgParam cfg);
 
-    static mlxCfgType cfgParam2Type(mlxCfgParam param);
-    std::vector<CfgParams*> _cfgList; // needs to be initialized in constructor and freed in destructor, will contain all the  tools supported cfgs
-    static u_int64_t cfgSuppMask[Mct_Last];
+    int invalidateCfgs4thGen();
+    int invalidateCfgs5thGen();
+
+    mlxCfgType cfgParam2Type(mlxCfgParam param);
+    std::map<mlxCfgType, CfgParams*> _cfgList; // needs to be initialized in constructor and freed in destructor, will contain all the  tools supported cfgs
+    std::map<mlxCfgParam, mlxCfgType> _param2TypeMap;
+    dm_dev_id_t _deviceId;
     mfile* _mf;
     u_int64_t _suppVec;
+    bool _isFifthGen;
 };
 
 

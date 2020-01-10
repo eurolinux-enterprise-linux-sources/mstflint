@@ -1,13 +1,34 @@
-/*                  - Mellanox Confidential and Proprietary -
+/* Copyright (c) 2013 Mellanox Technologies Ltd.  All rights reserved.
  *
- *  Copyright (C) Jan 2013, Mellanox Technologies Ltd.  ALL RIGHTS RESERVED.
+ * This software is available to you under a choice of one of two
+ * licenses.  You may choose to be licensed under the terms of the GNU
+ * General Public License (GPL) Version 2, available from the file
+ * COPYING in the main directory of this source tree, or the
+ * OpenIB.org BSD license below:
  *
- *  Except as specifically permitted herein, no portion of the information,
- *  including but not limited to object code and source code, may be reproduced,
- *  modified, distributed, republished or otherwise exploited in any form or by
- *  any means for any purpose without the prior written permission of Mellanox
- *  Technologies Ltd. Use of software subject to the terms and conditions
- *  detailed in the file "LICENSE.txt".
+ *     Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
+ *
+ *      - Redistributions of source code must retain the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer.
+ *
+ *      - Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials
+ *        provided with the distribution.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ *  Version: $Id$
  *
  */
 
@@ -60,6 +81,7 @@ typedef enum MError {
     ME_REG_ACCESS_LEN_TOO_SMALL,
     ME_REG_ACCESS_BAD_CONFIG,
     ME_REG_ACCESS_ERASE_EXEEDED,
+    ME_REG_ACCESS_INTERNAL_ERROR,
 
     // errors regarding ICMD
     ME_ICMD_STATUS_CR_FAIL = 0x200,       // cr-space access failure
@@ -127,6 +149,12 @@ typedef enum {
     MACCESS_REG_METHOD_SET = 2
 } maccess_reg_method_t;
 
+typedef enum {
+    AS_ICMD = 3,
+    AS_CR_SPACE = 2,
+    AS_SEMAPHORE = 0xa
+} address_space_t;
+
 typedef struct dev_info_t
 {
     Mdevs         type;
@@ -192,6 +220,7 @@ int mread4_block (mfile *mf, unsigned int offset, u_int32_t* data, int byte_len)
 int mwrite4_block (mfile *mf, unsigned int offset, u_int32_t* data, int byte_len);
 
 int msw_reset(mfile *mf);
+int mhca_reset(mfile *mf);
 
 /*
  * Get list of MST (Mellanox Software Tools) devices.
@@ -223,7 +252,7 @@ mfile *mopen(const char *name);
 
 mfile *mopend(const char *name, int type);
 
-mfile *mopen_fw_ctx(void* fw_cmd_context, void* fw_cmd_func);
+mfile *mopen_fw_ctx(void* fw_cmd_context, void* fw_cmd_func, void* extra_data);
 
 /*
  * Close Mellanox driver
@@ -271,6 +300,11 @@ const char* m_err2str(MError status);
 
 int mread_buffer(mfile *mf, unsigned int offset, u_int8_t* data, int byte_len);
 int mwrite_buffer(mfile *mf, unsigned int offset, u_int8_t* data, int byte_len);
+
+int mget_vsec_supp(mfile* mf);
+
+int mget_addr_space(mfile* mf);
+int mset_addr_space(mfile* mf, int space);
 
 #ifdef __cplusplus
 }

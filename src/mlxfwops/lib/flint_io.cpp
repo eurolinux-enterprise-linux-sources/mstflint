@@ -45,6 +45,13 @@ extern bool _no_burn;
 
 extern const char* g_sectNames[];
 
+#ifdef UEFI_BUILD
+// no signal handling.
+void mft_signal_set_handling(int isOn) {
+	return;
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 //
 // FImage Class Implementation
@@ -265,25 +272,25 @@ bool Flash::set_no_flash_verify(bool val) {
 
 ////////////////////////////////////////////////////////////////////////
 bool Flash::open(const char *device, bool force_lock, bool read_only, int num_of_banks, flash_params_t *flash_params,
-        int ignore_cashe_replacement, bool advErr)
+        int ignore_cashe_replacement, bool advErr, int cx3_fw_access)
 {
     // Open device
     int rc;
     _advErrors = advErr;
     _ignore_cache_replacement = ignore_cashe_replacement ? true : false;
     (void)read_only; // not used , avoid compiler warnings TODO: remove this var from function def
-    rc = mf_open(&_mfl, device, num_of_banks, flash_params, ignore_cashe_replacement);
+    rc = mf_open_adv(&_mfl, device, num_of_banks, flash_params, ignore_cashe_replacement, cx3_fw_access);
     //printf("device: %s , forceLock: %s , read only: %s, num of banks: %d, flash params is null: %s, ocr: %d, rc: %d\n",
     //		device, force_lock? "true":"false", read_only?"true":"false", num_of_banks, flash_params? "no":"yes", ignore_cashe_replacement, rc);
     return open_com_checks(device, rc, force_lock);
 }
 
 ////////////////////////////////////////////////////////////////////////
-bool Flash::open(uefi_Dev_t *uefi_dev, f_fw_cmd fw_cmd_func, bool force_lock, bool advErr)
+bool Flash::open(uefi_Dev_t *uefi_dev, uefi_dev_extra_t* uefi_extra, bool force_lock, bool advErr)
 {
     int rc;
     _advErrors = advErr;
-    rc = mf_open_uefi(&_mfl, uefi_dev, fw_cmd_func);
+    rc = mf_open_uefi(&_mfl, uefi_dev, uefi_extra);
     return open_com_checks("uefi", rc, force_lock);
 }
 
@@ -554,20 +561,32 @@ bool Flash::write_sector_with_erase(u_int32_t addr, void *data, int cnt)
         return false;
     }
 
+    if (!erase_sector(sector)) {
+        return false;
+    }
+
     memcpy(&buff[word_in_sector], data, cnt);
-    return write(sector, &buff[0], sector_size);
+
+    // no need to erase twice noerase=true
+    return write(sector, &buff[0], sector_size, true);
 }
 
 bool Flash::write_with_erase(u_int32_t addr, void *data, int cnt)
 {
     u_int32_t towrite = (u_int32_t)cnt;
     u_int32_t currSize;
+    u_int32_t currAddr = addr;
+    u_int32_t alreadyWritten = 0;
+    u_int32_t sizeUntillEndOfSector = 0;
     while (towrite > 0) {
-        currSize = towrite > _attr.sector_size ? (_attr.sector_size) : towrite;
-        if (!write_sector_with_erase(addr, data, currSize)) {
+        sizeUntillEndOfSector = _attr.sector_size - (currAddr & (_attr.sector_size - 1));
+        currSize = towrite >  sizeUntillEndOfSector ? sizeUntillEndOfSector : towrite;
+        if (!write_sector_with_erase(currAddr, ((u_int8_t*)data + alreadyWritten), currSize)) {
             return false;
         }
         towrite -= currSize;
+        currAddr += currSize;
+        alreadyWritten += currSize;
     }
     return true;
 }
@@ -721,7 +740,6 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
         if (!strcmp(param_str, WRITE_PROTECT)) {
             write_protect_info_t protect_info;
             char *tb, *num_str, *sec;
-
             if (!strcmp(param_val_str, WP_DISABLED_STR)) {
                 memset(&protect_info, 0, sizeof(protect_info));
             } else {
@@ -751,7 +769,6 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
     } else {
         return errmsg("Unknown attribute %s", param_name);
     }
-
     return true;
 }
 
@@ -778,6 +795,7 @@ bool Flash::is_flash_write_protected()
 
 void Flash::deal_with_signal()
 {
+#ifndef UEFI_BUILD
     int sig;
     sig = mft_signal_is_fired();
     if (sig) {
@@ -789,6 +807,7 @@ void Flash::deal_with_signal()
         raise(sig);
     }
     mft_signal_set_handling(0);
+#endif
     return;
 }
 

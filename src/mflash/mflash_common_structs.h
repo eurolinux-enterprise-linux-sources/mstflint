@@ -1,5 +1,4 @@
-/*
- * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+/* Copyright (c) 2013 Mellanox Technologies Ltd.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -29,6 +28,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *  Version: $Id$
+ *
  */
 
 #ifndef MFLASH_COMMON_STRUCTS_H
@@ -48,6 +49,7 @@ typedef enum MfOpt {
     MFO_FW_ACCESS_TYPE_BY_MFILE,
     MFO_SX_TYPE,
     MFO_NEW_CACHE_REPLACEMENT_EN,
+    MFO_CX3_FW_ACCESS_EN,
     MFO_LAST
 } MfOpt;
 
@@ -122,6 +124,8 @@ typedef struct flash_attr {
     u_int8_t protect_sub_and_sector;
     u_int8_t vendor;
     u_int8_t type;
+    // the flash sector size as seen by FW
+    u_int32_t fw_flash_sector_sz;
 
 
 } flash_attr;

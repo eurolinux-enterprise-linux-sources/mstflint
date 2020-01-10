@@ -1,16 +1,16 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(mstflint, 4.0.0, orenk@mellanox.co.il)
+AC_INIT(mstflint, 4.1.0, adrianc@mellanox.co.il)
 
 AC_DEFINE_UNQUOTED([PROJECT], ["mstflint"], [Define the project name.])
 AC_SUBST([PROJECT])
 
-AC_DEFINE_UNQUOTED([VERSION], ["4.0.0"], [Define the project version.])
+AC_DEFINE_UNQUOTED([VERSION], ["4.1.0"], [Define the project version.])
 AC_SUBST([VERSION])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR([README])
-AM_INIT_AUTOMAKE(mstflint, 4.0.0)
+AM_INIT_AUTOMAKE(mstflint, 4.1.0)
 
 dnl Checks for programs
 AC_PROG_CC
@@ -47,12 +47,26 @@ fi
 
 AM_CONDITIONAL(ENABLE_INBAND, [test  "x$enable_inband" = "xyes"])
 
+AC_ARG_ENABLE([static_libstdcpp],
+    AS_HELP_STRING([--enable-static-libstdcpp], [Enable link static to libstdc++]))
+
+AS_IF([test "x$enable_static_libstdcpp" = "xyes"], [
+  CXXFLAGS="$CXXFLAGS -static-libstdc++"
+])
+
+AC_ARG_ENABLE([dynamic_ld],
+    AS_HELP_STRING([--enable-dynamic-ld], [Enable dynamic link to ld64.so]))
+
+AS_IF([test "x$enable_dynamic_ld" = "xyes"], [
+  LDFLAGS="$LDFLAGS -Wl,--dynamic-linker=/lib64/ld64.so.2"
+])
+
 CFLAGS="$CFLAGS -Werror -DMST_UL"
 CXXFLAGS="$CXXFLAGS -Werror -DMST_UL"
 
 AC_CONFIG_FILES( mstflint.spec )
 
-AC_OUTPUT( Makefile mft_utils/Makefile mtcr_ul/Makefile dev_mgt/Makefile tools_layouts/Makefile reg_access/Makefile cmdif/Makefile mlxconfig/Makefile \
-		mflash/Makefile mlxfwops/Makefile mlxfwops/lib/Makefile cmdparser/Makefile flint/Makefile \
+AC_OUTPUT( Makefile mft_utils/Makefile mtcr_ul/Makefile dev_mgt/Makefile tools_layouts/Makefile reg_access/Makefile cmdif/Makefile tools_res_mgmt/Makefile \
+		mlxconfig/Makefile mflash/Makefile mlxfwops/Makefile mlxfwops/lib/Makefile cmdparser/Makefile flint/Makefile \
  		small_utils/Makefile mstdump/Makefile mstdump/crd_lib/Makefile mstdump/crd_main/Makefile  mstdump/mstdump_dbs/Makefile )
 

@@ -1,12 +1,11 @@
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	4.0.0
-Release:	0.1.30.g00eb005%{?dist}
+Version:	4.1.0
+Release:	1%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-Source:		https://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.30.g00eb005.tar.gz
+Source:		https://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.46.gb1cdaf7.tar.gz
 Url:		https://www.openfabrics.org
-BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel
 Obsoletes:	openib-mstflint <= 1.4 openib-tvflash <= 0.9.2 tvflash <= 0.9.0
 ExcludeArch:	s390 s390x
@@ -24,22 +23,21 @@ export CFLAGS="$RPM_OPT_FLAGS"
 make
 
 %install
-rm -rf %{buildroot}
 make DESTDIR=%{buildroot} install
 # Remove the devel files that we don't ship
 rm -fr %{buildroot}%{_includedir}
 rm -fr %{buildroot}%{_datadir}
 rm -fr %{buildroot}%{_libdir}/*.a
 
-%clean
-rm -rf %{buildroot}
-
 %files
-%defattr(-, root, root)
 %doc README
 %_bindir/*
 
 %changelog
+* Wed Jan 20 2016 Honggang Li <honli@redhat.com> - 4.1.0-1
+- Update to latest upstream release to support ConnectX-4 HCA
+- Resolves: bz1277498
+
 * Thu Mar 12 2015 Doug Ledford <dledford@redhat.com> - 4.0.0-0.1.30.g00eb005
 - Update to latest upstream release
 - Resolves: bz1006988

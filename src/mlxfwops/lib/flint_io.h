@@ -52,7 +52,10 @@
 
 #include "flint_base.h"
 #include <mflash.h>
+
+#ifndef UEFI_BUILD
 #include <mft_sig_handler.h>
+#endif
 
 // external flash attr struct
 
@@ -218,7 +221,7 @@ class MLXFWOP_API Flash : public FBase {
 public:
     Flash() :
     FBase(true),
-    _mfl(NULL),
+    _mfl((mflash*)NULL),
     _no_flash_verify(false),
     _ignore_cache_replacement(false),
     _curr_sector(0xffffffff),
@@ -238,11 +241,12 @@ public:
                                 int num_of_banks = 4,
                                 flash_params_t *flash_params = (flash_params_t *)NULL,
                                 int ignoe_cache_replacement = 0,
-                                bool advErr = true);
+                                bool advErr = true,
+                                int cx3_fw_access = 0);
     using FBase::open;
 
     bool open          (uefi_Dev_t *uefi_dev,
-                        f_fw_cmd fw_cmd_func,
+    					uefi_dev_extra_t* uefi_extra,
                         bool force_lock = false,
                         bool advErr = true);
 
