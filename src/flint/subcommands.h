@@ -72,6 +72,7 @@ protected:
     FwOperations *_imgOps;
     FBase* _io;
     what_to_ver_t _v;
+    int _maxCmdParamNum;
     FlintParams _flintParams;
     //info about the Subcommand
     string _name;
@@ -124,9 +125,10 @@ protected:
                                         guid_t* old_guids, guid_t* old_macs, bool printGuids,\
                                         bool printMacs, bool printUids, int guidNum);
     bool checkGuidsFlags(chip_type_t ct, u_int16_t devType, u_int8_t fwType,
-            bool guidsSpecified, bool macsSpecified, bool uidsSpecified);
+            bool guidsSpecified, bool macsSpecified, bool uidsSpecified, bool ibDev, bool ethDev);
     void printMissingGuidErr(bool ibDev, bool ethDev, bool bxDev);
 
+    bool extractUIDArgs(std::vector<string>& cmdArgs, u_int8_t& numOfGuids, u_int8_t& stepSize);
     bool getGUIDFromStr(string str, guid_t& guid, string prefixErr="");
     bool  getPasswordFromUser(const char *preStr, char buffer[MAX_PASSWORD_LEN+1]);
     bool askUser(const char* question=NULL, bool printAbrtMsg=true);
@@ -137,9 +139,6 @@ protected:
     //print errors to an err buff, log if needed and stdout
     void reportErr(bool shouldPrint, const char *format, ...);
 
-
-    bool fwVerLessThan(const u_int16_t r1[3], const u_int16_t r2[3]);
-
     bool writeToFile(string filePath, const std::vector<u_int8_t>& buff);
 
     bool dumpFile(const char* confFile, std::vector<u_int8_t>& data, const char *sectionName);
@@ -148,7 +147,7 @@ protected:
 
 
 public:
-    SubCommand(): _fwOps(NULL), _imgOps(NULL), _io(NULL), _v(Wtv_Uninitilized)
+    SubCommand(): _fwOps(NULL), _imgOps(NULL), _io(NULL), _v(Wtv_Uninitilized), _maxCmdParamNum(-1)
     {
         _cmdType = SC_No_Cmd;
         memset(_errBuff, 0, sizeof(_errBuff));
@@ -296,7 +295,9 @@ public:
 class SmgSubCommand : public SubCommand
 {
 private:
-    guid_t _baseGuid;
+    fs3_uid_t _baseGuid;
+    fw_info_t _info;
+    FwOperations* _ops;
 public:
     SmgSubCommand();
     ~SmgSubCommand();

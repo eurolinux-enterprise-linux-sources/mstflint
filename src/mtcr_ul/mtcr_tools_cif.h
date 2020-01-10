@@ -28,6 +28,7 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
 
 
@@ -40,31 +41,17 @@ extern "C" {
 
 
 #include <compatibility.h>
-#ifdef MST_UL_ICMD
+#ifdef MST_UL
 #include <mtcr_int_defs.h>
 #endif
 #include <mtcr.h>
 
 #define FLASH_REG_ACCESS	0x9001
 
-#define TOOLS_HCR_MAX_MBOX 256
+#define TOOLS_HCR_MAX_MBOX 288
 
 // tools flash semaphore (62) will be taken at the begining of each command specified here
 // and released at the end of the command.
-
-
-/*
- * send a command to the tools HCR
- * limitations:
- * command should not use mailbox (not supported atm)
- */
-int tools_cmdif_send_cmd(mfile* mf,
-					 u_int64_t in_param,
-					 u_int64_t* out_param,
-					 u_int32_t input_modifier,
-					 u_int16_t opcode,
-					 u_int8_t  opcode_modifier,
-					 u_int8_t*  status);
 
 
 /*
@@ -78,6 +65,14 @@ int tools_cmdif_send_cmd(mfile* mf,
  */
 
 int tools_cmdif_reg_access(mfile *mf, void* data,int write_data_size, int read_data_size);
+
+/*
+ * tools_cmdif_is_supported tools HCR
+ *
+ * check if sending registers via tools HCR is supported
+ *
+ */
+int tools_cmdif_is_supported(mfile *mf);
 
 #ifdef __cplusplus
 }

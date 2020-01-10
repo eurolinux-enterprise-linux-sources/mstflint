@@ -14,12 +14,12 @@
  *      - Redistributions of source code must retain the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer.
- * 
+ *
  *      - Redistributions in binary form must reproduce the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer in the documentation and/or other materials
  *        provided with the distribution.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -28,8 +28,14 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
-
+/*
+ * mlxcfg_lib.h
+ *
+ *  Created on: Feb 17, 2014
+ *      Author: adrianc
+ */
 
 #ifndef MLXCFG_LIB_H_
 #define MLXCFG_LIB_H_
@@ -39,48 +45,16 @@
 
 #include <mtcr.h>
 
+#include "errmsg.h"
+
 
 #define MLXCFG_UNKNOWN 0xffffffff
 
 #define WOL_TYPE 0x10
 #define SRIOV_TYPE 0x11
 #define VPI_TYPE 0x12
+#define BAR_SIZE_TYPE 0x13
 
-
-
-
-typedef enum {
-    MCE_SUCCESS = 0,
-    MCE_TLV_NOT_FOUND,
-    MCE_TLV_NOT_SUPP,
-    MCE_NVCFG_NOT_SUPP,
-    MCE_TOOLS_HCR_NOT_SUPP,
-    MCE_DRIVER_DOWN,
-    MCE_UNSUPPORTED_DEVICE,
-    MCE_UNSUPPORTED_CFG,
-    MCE_BAD_PARAMS,
-    MCE_BAD_PARAM_VAL,
-    MCE_DEV_BUSY,
-    MCE_UNKNOWN_TLV,
-    MCE_REG_NOT_SUPP,
-    MCE_METHOD_NOT_SUPP,
-    MCE_RES_NOT_AVAIL,
-    MCE_CONF_CORRUPT,
-    MCE_TLV_LEN_TOO_SMALL,
-    MCE_BAD_CONFIG,
-    MCE_ERASE_EXEEDED,
-    MCE_BAD_OP,
-    MCE_BAD_STATUS,
-    MCE_CR_ERROR,
-    MCE_NOT_IMPLEMENTED,
-    MCE_INCOMPLETE_PARAMS,
-    MCE_OPEN_DEVICE,
-    MCE_PCICONF,
-    MCE_UNKNOWN_ERR,
-    MCE_FAILED,
-    MCE_LAST
-
-}McStatus;
 
 typedef enum {
     Mct_Sriov = 0,
@@ -88,6 +62,7 @@ typedef enum {
     Mct_Wol_P2,
     Mct_Vpi_P1,
     Mct_Vpi_P2,
+    Mct_Bar_Size,
     Mct_Last
 } mlxCfgType;
 
@@ -98,52 +73,72 @@ typedef enum {
     Mcp_Wol_Magic_En_P2,
     Mcp_Link_Type_P1,
     Mcp_Link_Type_P2,
+    Mcp_Log_Bar_Size,
     Mcp_Last
 } mlxCfgParam;
 
 typedef std::pair<mlxCfgParam, u_int32_t> cfgInfo;
 
-class MlxCfgOps {
+class MlxCfgOps : public ErrMsg {
 public:
     MlxCfgOps();
     ~MlxCfgOps();
-    McStatus open(const char* devStr);
-    McStatus opend(mfile* mf);
+    int open(const char* devStr, bool forceClearSem=false);
+    int opend(mfile* mf, bool forceClearSem=false);
 
     // no need to close , this is done  in destructor
 
     bool supportsCfg(mlxCfgType cfg);
     bool supportsParam(mlxCfgParam param);
 
-    McStatus getCfg(mlxCfgParam cfgParam, u_int32_t& val);
-    McStatus getCfg(std::vector<cfgInfo>& infoVec);
+    int getCfg(mlxCfgParam cfgParam, u_int32_t& val);
+    int getCfg(std::vector<cfgInfo>& infoVec);
 
-    McStatus setCfg(mlxCfgParam cfgParam, u_int32_t val);
-    McStatus setCfg(const std::vector<cfgInfo>& infoVec);
+    int setCfg(mlxCfgParam cfgParam, u_int32_t val);
+    int setCfg(const std::vector<cfgInfo>& infoVec);
 
-    McStatus invalidateCfgs();
+    int invalidateCfgs();
 
-    static const char* err2str(McStatus rc);
+    // Set/Un-Set ignore limits for all configurations
+    void setIgnoreSoftLimits(bool val);
+    void setIgnoreHardLimits(bool val);
+
+    // Set/Un-Set Ignore limits per configuration
+    // Adrianc: TBD
 
 private:
-
-    class CfgParams
+    class CfgParams : public ErrMsg
     {
     public:
-        CfgParams(mlxCfgType t=Mct_Last, u_int32_t tlvT=0) : type(t), tlvType(tlvT), _updated(false) {}
+        CfgParams(mlxCfgType t=Mct_Last, u_int32_t tlvT=0);
         virtual ~CfgParams() {}
 
         virtual void setParam(mlxCfgParam paramType, u_int32_t val) = 0;
         virtual u_int32_t getParam(mlxCfgParam paramType) = 0;
 
-        virtual McStatus getFromDev(mfile* mf) = 0;
-        virtual McStatus setOnDev(mfile* mf) = 0;
+        virtual int getDefaultAndFromDev(mfile* mf);
+        virtual int getFromDev(mfile* mf) = 0;
+        virtual int setOnDev(mfile* mf, bool ignoreCheck=false) = 0;
+        virtual int getDefaultParams(mfile* mf) = 0;
+
+        void setIgnoreSoftLimits(bool val);
+        void setIgnoreHardLimits(bool val);
 
         mlxCfgType type;
         u_int32_t tlvType;
     protected:
-        virtual bool isLegal(mfile* mf=NULL) = 0;
+        // param validadion methods, only checkCfg shuold be called
+        virtual bool checkCfg(mfile* mf=NULL);
+        virtual bool hardLimitCheck() = 0;
+        virtual bool softLimitCheck(mfile* mf=NULL);
+
+        // get default parameters for configuration
+        int getDefaultParams4thGen(mfile* mf, struct tools_open_query_def_params_global* global_params);
+        int getDefaultParams4thGen(mfile* mf, int port, struct tools_open_query_def_params_per_port* port_params);
+
         bool _updated; // set true on get and false on set
+        bool _ignoreSoftLimits; // soft limits checks will not be performed for configuration
+        bool _ignoreHardLimits; // hard limits checks will not be performed
     };
 
     class SriovParams : public CfgParams
@@ -155,13 +150,14 @@ private:
         virtual void setParam(mlxCfgParam paramType, u_int32_t val);
         virtual u_int32_t getParam(mlxCfgParam paramType);
 
-        virtual McStatus getFromDev(mfile* mf);
-        virtual McStatus setOnDev(mfile* mf);
-
-        McStatus updateMaxVfs(mfile* mf);
+        virtual int getFromDev(mfile* mf);
+        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
+        virtual int getDefaultParams(mfile* mf);
 
     private:
-        virtual bool isLegal(mfile* mf);
+        virtual bool hardLimitCheck();
+        virtual bool softLimitCheck(mfile* mf=NULL);
+        int updateMaxVfs(mfile* mf);
 
         u_int32_t _sriovEn;
         u_int32_t _numOfVfs;
@@ -177,12 +173,12 @@ private:
         virtual void setParam(mlxCfgParam paramType, u_int32_t val);
         virtual u_int32_t getParam(mlxCfgParam paramType);
 
-        virtual McStatus getFromDev(mfile* mf);
-        virtual McStatus setOnDev(mfile* mf);
-
+        virtual int getFromDev(mfile* mf);
+        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
+        virtual int getDefaultParams(mfile* mf);
 
     private:
-        virtual bool isLegal(mfile* mf=NULL);
+        virtual bool hardLimitCheck();
         // Wake on magic packet (atm this is the only mode which is supported)
         int _port;
         u_int32_t _wolMagicEn;
@@ -197,18 +193,42 @@ private:
         virtual void setParam(mlxCfgParam paramType, u_int32_t val);
         virtual u_int32_t getParam(mlxCfgParam paramType);
 
-        virtual McStatus getFromDev(mfile* mf);
-        virtual McStatus setOnDev(mfile* mf);
-
+        virtual int getFromDev(mfile* mf);
+        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
+        virtual int getDefaultParams(mfile* mf);
 
     private:
-        virtual bool isLegal(mfile* mf=NULL);
+        virtual bool hardLimitCheck();
+
         int _port;
         u_int32_t _linkType;
     };
 
-    McStatus openComChk();
-    McStatus supportsToolsHCR();
+    class BarSzParams : public CfgParams
+    {
+    public:
+        BarSzParams() : CfgParams(Mct_Bar_Size, BAR_SIZE_TYPE) ,_maxLogBarSz(1), _logBarSz(MLXCFG_UNKNOWN) {}
+        ~BarSzParams() {};
+
+        virtual void setParam(mlxCfgParam paramType, u_int32_t val);
+        virtual u_int32_t getParam(mlxCfgParam paramType);
+
+        virtual int getFromDev(mfile* mf);
+        virtual int setOnDev(mfile* mf, bool ignoreCheck=false);
+        virtual int getDefaultParams(mfile* mf);
+
+    private:
+        virtual bool hardLimitCheck();
+        virtual bool softLimitCheck(mfile* mf=NULL);
+        int getDefaultBarSz(mfile* mf);
+        u_int32_t _maxLogBarSz;
+        u_int32_t _logBarSz;
+
+    };
+
+
+    int openComChk();
+    int supportsToolsHCR();
     bool isLegal(mlxCfgType cfg);
     bool isLegal(mlxCfgParam cfg);
 

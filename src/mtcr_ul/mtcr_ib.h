@@ -28,6 +28,7 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
 
 /*
@@ -56,5 +57,7 @@ int mib_swreset(mfile *mf);
 int mib_get_chunk_size(mfile *mf);
 int mib_acces_reg_mad(mfile *mf, u_int8_t *data);
 
+int mib_smp_set(mfile* mf, u_int8_t* data, u_int16_t attr_id, u_int32_t attr_mod);
+int mib_smp_get(mfile* mf, u_int8_t* data, u_int16_t attr_id, u_int32_t attr_mod);
 
 #endif

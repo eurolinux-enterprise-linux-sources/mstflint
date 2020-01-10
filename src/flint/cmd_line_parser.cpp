@@ -1,7 +1,8 @@
 /*
+ *
  * cmd_line_parser.cpp - FLash INTerface
  *
- * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+ * Copyright (c) 2013 Mellanox Technologies Ltd.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -37,6 +38,7 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <errno.h>
 // Flint includes
 #include "flint.h"
 #include <common/tools_version.h>
@@ -79,7 +81,7 @@ SubCmdMetaData::SubCmdMetaData() {
     _sCmds.push_back(new SubCmd("q", "query", SC_Query));
     _sCmds.push_back(new SubCmd("v", "verify", SC_Verify));
     _sCmds.push_back(new SubCmd("", "swreset", SC_Swreset));
-    _sCmds.push_back(new SubCmd("r", "reset_cfg", SC_ResetCfg));
+    _sCmds.push_back(new SubCmd("", "reset_cfg", SC_ResetCfg));
     _sCmds.push_back(new SubCmd("", "brom", SC_Brom));
     _sCmds.push_back(new SubCmd("", "drom", SC_Drom));
     _sCmds.push_back(new SubCmd("", "rrom", SC_Rrom));
@@ -171,6 +173,7 @@ FlagMetaData::FlagMetaData() {
     _flags.push_back(new Flag("", "use_image_ps", 0));
     _flags.push_back(new Flag("", "use_image_guids", 0));
     _flags.push_back(new Flag("", "use_image_rom", 0));
+    _flags.push_back(new Flag("", "ignore_dev_data", 0));
     _flags.push_back(new Flag("", "dual_image", 0));
     _flags.push_back(new Flag("", "striped_image", 0));
     _flags.push_back(new Flag("", "banks", 1));
@@ -299,7 +302,7 @@ bool getGUIDFromStr(string str, guid_t& guid, string prefixErr="")
     g = strtoull(str.c_str(), &endp, 16);
     if (*endp || (g == 0xffffffffffffffffULL && errno == ERANGE)) {
         if (prefixErr.size() == 0) {
-            printf("-E- Invalid GUID syntax (%s) %s \n", str.c_str(), errno ? strerror(errno) : "" );
+            printf("-E- Invalid Guid/Mac/Uid syntax (%s) %s \n", str.c_str(), errno ? strerror(errno) : "" );
         } else {
             printf("%s\n", prefixErr.c_str());
         }
@@ -605,6 +608,12 @@ void Flint::initCmdParser() {
                 "Do not save the ROM which exists in the device.\n"
                 "Commands affected: burn");
 
+    AddOptions("ignore_dev_data",
+               ' ',
+                "",
+                "Do not attempt to take device data sections from device(sections will be taken from the image. FS3 Only).\n"
+                "Commands affected: burn");
+
     AddOptions("dual_image",
                ' ',
                 "",
@@ -686,7 +695,7 @@ ParseStatus Flint::HandleOption(string name, string value)
             string str1 = "  "+it->second->getFlagL()+((it->second->getFlagS() == "") ? ("  ") : ("|"))+it->second->getFlagS()\
                     +" "+it->second->getParam();
             string str2 = ": " + it->second->getDesc()+"\n";
-            printf("%-40s %s", str1.c_str(), str2.c_str());
+            printf("%-44s %s", str1.c_str(), str2.c_str());
         }
         cout<<endl<<"  Return values:\n  0 - Successful completion\n  1 - An error has occurred\n"
                 "  7 - For burn command - FW already updated - burn was aborted."<<endl << endl;
@@ -732,7 +741,7 @@ ParseStatus Flint::HandleOption(string name, string value)
         return PARSE_OK_WITH_EXIT;
     }
     else if (name == "no_devid_check") {
-            _flintParams.no_devid_check = false;
+            _flintParams.no_devid_check = true;
     }
     else if (name == "guid") {
         _flintParams.guid_specified = true;
@@ -843,6 +852,8 @@ ParseStatus Flint::HandleOption(string name, string value)
         _flintParams.use_image_guids = true;
     } else if (name == "use_image_rom") {
         _flintParams.use_image_rom = true;
+    } else if (name == "ignore_dev_data") {
+        _flintParams.ignore_dev_data = true;
     } else if (name == "dual_image") {
         _flintParams.dual_image = true;
     } else if (name == "striped_image") {
@@ -869,6 +880,8 @@ ParseStatus Flint::HandleOption(string name, string value)
     }
     return PARSE_OK;
 }
+
+#define IS_NUM(cha) (((cha) >= '0') && ((cha) <= '9'))
 
 ParseStatus Flint::parseCmdLine(int argc, char* argv[]) {
     //Step1 separate between option section and cmd section
@@ -899,8 +912,8 @@ ParseStatus Flint::parseCmdLine(int argc, char* argv[]) {
     //first arg is the flint command we can copy as is
     newArgv[0] = strcpy(new char[strlen(argvOpt[0]) + 1], argvOpt[0]);
     while (i < argcOpt) {
-        if (argvOpt[i][0] == '-') //its a flag so we copy to new_argv as is
-                {
+        if (argvOpt[i][0] == '-' && !IS_NUM(argvOpt[i][1])) //its a flag (and not a number) so we copy to new_argv as is
+        {
             newArgv[j] = strcpy(new char[strlen(argvOpt[i]) + 1],
                     argvOpt[i]);
             i++;
@@ -911,7 +924,7 @@ ParseStatus Flint::parseCmdLine(int argc, char* argv[]) {
             argStart = i;
             argEnd = i;
             int argsSize = 0;
-            while (argEnd < argcOpt && argvOpt[argEnd][0] != '-') {
+            while (argEnd < argcOpt && (argvOpt[argEnd][0] != '-' || IS_NUM(argvOpt[argEnd][1]))) {
                 argsSize += strlen(argvOpt[argEnd]) + 1; //for the comma
                 argEnd++;
             }
@@ -947,7 +960,7 @@ ParseStatus Flint::parseCmdLine(int argc, char* argv[]) {
         int lastFlagPos;
         char* strippedFlag;
         for (lastFlagPos = argc - 1; lastFlagPos > 0; lastFlagPos--) {
-            if (argv[lastFlagPos][0] == '-')
+            if (argv[lastFlagPos][0] == '-' && !IS_NUM(argv[lastFlagPos][1]))
                 break;
         }
         if (lastFlagPos == 0) {

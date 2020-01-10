@@ -28,16 +28,25 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
 
+/*
+ * mflash_inband.h
+ *
+ *  Created on: Jul 6, 2011
+ *      Author: mohammad
+ */
 
 #ifndef MFLASH_COMMON_H_
 #define MFLASH_COMMON_H_
 
+#include "mflash_types.h"
 #include "mflash_common_structs.h"
 
+// TODO: use: (int)log2((float)num)  
 #define NEAREST_POW2(num)\
-	(num) < (256) ? ((num) < (128)? ((num) < (64) ? ((num) < (32) ? (16): (32)): (64)): (128)): (256);
+	(num) < (256) ? ((num) < (128) ? ((num) < (64) ? ((num) < (32) ? ((num) < (16) ? ((num) < (8) ? (4) : (8)): (16)): (32)): (64)): (128)): (256)
 
 #ifndef CHECK_RC
     #define CHECK_RC(rc) do {if (rc) return rc;} while(0)
@@ -85,11 +94,15 @@ struct mflash {
 	f_mf_erase_sect f_erase_sect;
 	f_mf_reset      f_reset;
 
-	// Relevant for SPI flash (InfiniHostIIILx, ConnectX) only.
+	// Relevant for SPI flash (InfiniHostIIILx, ConnectX) only
 	f_st_spi_status f_spi_status;
+	// when set(1) we support modification of the flash status register
+	u_int8_t supp_sr_mod;
 
 	int             curr_bank;
 	int             is_locked;
+	// if writer_lock is set, semaphore should be freed only in mf_close()/disable_hw_access()
+	int             writer_lock;
 
 	flash_attr      attr;
 
@@ -178,16 +191,20 @@ int sx_st_block_access(mfile *mf, u_int32_t flash_addr, u_int8_t bank, u_int32_t
 
 int common_erase_sector(mfile *mf, u_int32_t addr, u_int8_t flash_bank);
 
-int run_mfpa_command(mfile *mf, u_int8_t access_cmd, u_int8_t flash_bank, u_int32_t boot_address, u_int32_t *jedec_p);
+int run_mfpa_command(mfile *mf, u_int8_t access_cmd, u_int8_t flash_bank, u_int32_t boot_address, u_int32_t *jedec_p, int *num_of_banks);
 
 int com_get_jedec(mfile *mf, u_int8_t flash_bank, u_int32_t *jedec_p);
+int get_num_of_banks(mfile *mf);
 int get_info_from_jededc_id(u_int32_t jededc_id, u_int8_t *vendor, u_int8_t* type, u_int8_t* capacity);
 int get_type_index_by_vendor_and_type(u_int8_t vendor, u_int8_t type, unsigned *type_index);
 int get_log2size_by_capcity(unsigned type_index, u_int8_t capacity, int *log2size);
 int get_max_reg_size(mfile *mf);
 
 int set_bank(mflash* mfl, u_int32_t addr);
+int set_bank_int(mflash* mfl, int bank_num);
+int get_bank_int(mflash* mfl);
 int get_flash_offset(u_int32_t addr, int log2_bank_size, u_int32_t *flash_addr_p);
 int mfl_get_bank_info(mflash *mfl, u_int32_t addr, u_int32_t *flash_off_p, int *bank_p);
+MfError MError2MfError(MError rc);
 
 #endif /* MFLASH_COMMON_H_ */

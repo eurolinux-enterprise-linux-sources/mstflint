@@ -1,22 +1,25 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(mstflint, 3.6.0, orenk@mellanox.co.il)
+AC_INIT(mstflint, 4.0.0, orenk@mellanox.co.il)
 
 AC_DEFINE_UNQUOTED([PROJECT], ["mstflint"], [Define the project name.])
 AC_SUBST([PROJECT])
 
-AC_DEFINE_UNQUOTED([VERSION], ["3.6.0"], [Define the project version.])
+AC_DEFINE_UNQUOTED([VERSION], ["4.0.0"], [Define the project version.])
 AC_SUBST([VERSION])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_SRCDIR([README])
-AM_INIT_AUTOMAKE(mstflint, 3.6.0)
+AM_INIT_AUTOMAKE(mstflint, 4.0.0)
 
 dnl Checks for programs
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_LIBTOOL
 AC_CONFIG_HEADERS( config.h )
+
+dnl Checks for headers
+AC_CHECK_HEADER(termios.h,[CXXFLAGS="${CXXFLAGS} -DHAVE_TERMIOS_H"])
 
 AC_MSG_CHECKING(--enable-dc argument)
 AC_ARG_ENABLE(dc,
@@ -49,7 +52,7 @@ CXXFLAGS="$CXXFLAGS -Werror -DMST_UL"
 
 AC_CONFIG_FILES( mstflint.spec )
 
-AC_OUTPUT( Makefile mft_utils/Makefile mtcr_ul/Makefile dev_mgt/Makefile tools_layouts/Makefile reg_access/Makefile mlxconfig/Makefile \
+AC_OUTPUT( Makefile mft_utils/Makefile mtcr_ul/Makefile dev_mgt/Makefile tools_layouts/Makefile reg_access/Makefile cmdif/Makefile mlxconfig/Makefile \
 		mflash/Makefile mlxfwops/Makefile mlxfwops/lib/Makefile cmdparser/Makefile flint/Makefile \
  		small_utils/Makefile mstdump/Makefile mstdump/crd_lib/Makefile mstdump/crd_main/Makefile  mstdump/mstdump_dbs/Makefile )
 

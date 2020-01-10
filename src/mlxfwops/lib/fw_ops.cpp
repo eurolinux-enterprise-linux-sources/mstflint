@@ -31,8 +31,10 @@
  */
 
 
-#include "stdlib.h"
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
 #include "flint_base.h"
 #include "flint_io.h"
 #include "fw_ops.h"
@@ -96,7 +98,17 @@ int FwOperations::getBufferSignature(u_int8_t* buf, u_int32_t size)
     return res;
 }
 
-
+const char * FwOperations::err2str(int errNum)
+{
+    switch(errNum) {
+        case -4:
+            return "Found MFA(s) with higher Version, upgrade tool to work with it";
+        case -3:
+            return "File Signature is invalid";
+        default:
+            return "Failed to get MFA Image";
+    }
+}
 int FwOperations::getMfaImg(char* fileName, char *psid, u_int8_t **imgbuf)
 {
     int res;
@@ -106,8 +118,10 @@ int FwOperations::getMfaImg(char* fileName, char *psid, u_int8_t **imgbuf)
     if (psid == NULL) {
         return -1; //No psid => no image
     }
+
     if ((res = mfa_open_file(&mfa_d, fileName))) {
-        return -1;
+        res = res < 0 ? res : -1 * res;
+        return res;
     }
 
     res = mfa_get_image(mfa_d, psid, image_type, (char*)"", imgbuf);
@@ -127,7 +141,8 @@ int FwOperations::getMfaImg(u_int8_t* mfa_buf, int size, char *psid, u_int8_t **
         return -1; //No psid => no image
     }
     if ((res = mfa_open_buf(&mfa_d, mfa_buf, size))) {
-        return -1;
+        res = res < 0 ? res : -1 * res;
+        return res;
     }
 
     res = mfa_get_image(mfa_d, psid, image_type, (char*)"", imgbuf);
@@ -145,6 +160,9 @@ void FwOperations::FwCleanUp()
     if (_fname != NULL) {
         delete[] _fname;
     }
+    if (_devName != NULL) {
+        delete[] _devName;
+    }
 }
 
 
@@ -154,6 +172,12 @@ void FwOperations::FwInitCom()
 }
 
 
+void FwOperations::getSupporteHwId(u_int32_t **supportedHwId, u_int32_t &supportedHwIdNum)
+{
+    *supportedHwId    = _fwImgInfo.supportedHwId;
+    supportedHwIdNum = _fwImgInfo.supportedHwIdNum;
+
+}
 
 bool FwOperations::checkBoot2(u_int32_t beg, u_int32_t offs, u_int32_t& next, bool fullRead, const char *pref, VerifyCallBack verifyCallBackFunc)
 {
@@ -171,9 +195,13 @@ bool FwOperations::checkBoot2(u_int32_t beg, u_int32_t offs, u_int32_t& next, bo
     }
     _fwImgInfo.bootSize = (size + 4) * 4;
 
+    // Get absolute address on flash when checking BOOT2 for FS3 image format (for FS2 its always displayed as contiguous)
+    // Adrianc: why dont we show them both in the same way when running verify.
+    u_int32_t boot2AbsAddr = (this->FwType() == FIT_FS3 && _ioAccess->is_flash()) ? \
+            _ioAccess->get_phys_from_cont(beg, _fwImgInfo.cntxLog2ChunkSize, (_fwImgInfo.imgStart != 0)) : beg;
 
-    sprintf(pr, "%s /0x%08x-0x%08x (0x%06x)/ (BOOT2)", pref, offs+beg,
-            offs+beg+(size+4)*4-1, (size+4)*4);
+    sprintf(pr, "%s /0x%08x-0x%08x (0x%06x)/ (BOOT2)", pref, offs+boot2AbsAddr,
+            offs+boot2AbsAddr+(size+4)*4-1, (size+4)*4);
 
     if ((_ioAccess->is_flash() && fullRead == true) || !_ioAccess->is_flash()) {
         Crc16        crc;
@@ -212,38 +240,59 @@ bool FwOperations::checkBoot2(u_int32_t beg, u_int32_t offs, u_int32_t& next, bo
 bool FwOperations::CheckAndPrintCrcRes(char* pr, bool blank_crc, u_int32_t off, u_int32_t crc_act, u_int32_t crc_exp, bool ignore_crc,
          VerifyCallBack verifyCallBackFunc)
 {
-
-    if (!blank_crc && crc_exp != crc_act) {
-        report_callback(verifyCallBackFunc, "%s /0x%08x/ - wrong CRC (exp:0x%x, act:0x%x)\n",
-               pr, off, crc_exp, crc_act);
-        return errmsg(BAD_CRC_MSG);
-    }
-    // if (_print_crc) {
-    // TODO: Print CRC here.
-    if (0) {
-        report_callback(verifyCallBackFunc, "%s - OK (CRC:0x%04x)\n", pr, crc_act & 0xffff);
+    if (ignore_crc) {
+        report_callback(verifyCallBackFunc, "%s - CRC IGNORED\n", pr);
     } else {
-        if (ignore_crc) {
-            report_callback(verifyCallBackFunc, "%s - CRC IGNORED\n", pr);
+        if(blank_crc) {
+            report_callback(verifyCallBackFunc, "%s - BLANK CRC (0xffff)\n", pr);
+        } else if (crc_exp == crc_act) {
+            report_callback(verifyCallBackFunc, "%s - OK\n", pr);
         } else {
-            if (blank_crc) {
-                report_callback(verifyCallBackFunc, "%s - BLANK CRC (0xffff)\n", pr);
-            } else {
-                report_callback(verifyCallBackFunc, "%s - OK\n", pr);
-            }
+            report_callback(verifyCallBackFunc, "%s /0x%08x/ - wrong CRC (exp:0x%x, act:0x%x)\n",
+                           pr, off, crc_exp, crc_act);
+            return errmsg(BAD_CRC_MSG);
         }
     }
     return true;
 }
 
-bool FwOperations::FwVerLessThan(u_int16_t r1[3], u_int16_t r2[3]) {
-    for (int i = 0; i < 3 ; i++)
-        if (r1[i] < r2[i])
-            return true;
-        else if (r1[i] > r2[i])
-            return false;
-
-    return false; // equal versions
+FwVerInfo FwOperations::FwVerLessThan(u_int16_t r1[3], u_int16_t r2[3], u_int8_t fwType) {
+    // copy version arrays to local variables
+    u_int16_t fwVer1[3];
+    u_int16_t fwVer2[3];
+    u_int16_t branch1 = 0, branch2 = 0;
+    memcpy(fwVer1, r1, sizeof(fwVer1));
+    memcpy(fwVer2, r2, sizeof(fwVer2));
+    // update minor according to format
+    if (fwType == FIT_FS3) {
+        // extract GA release version from minor (upper 2 digits)
+        fwVer1[1] = r1[1] / 100;
+        fwVer2[1] = r2[1] / 100;
+        // extract branch (assume branch is 0 in old format)
+        branch1 = r1[1] % 100;
+        branch2 = r2[1] % 100;
+    }
+    //compare
+    for (int i = 0; i < 3 ; i++) {
+        if (i == 2 && branch1 != branch2) {
+            // major and minor versions are the same
+            // check branches to see if its an upgrade/downgrade
+            if (branch1 != 0 && branch2 != 0) {
+                return FVI_UNKNOWN;
+            } else if (branch1 > branch2) {
+                return FVI_GREATER;
+            } else {
+                return FVI_SMALLER;
+            }
+        }
+        if (fwVer1[i] < fwVer2[i]) {
+            return FVI_SMALLER;
+        }
+        else if (fwVer1[i] > fwVer2[i]) {
+            return FVI_GREATER;
+        }
+    }
+    return FVI_EQUAL; // equal versions
 }
 const u_int32_t FwOperations::_cntx_magic_pattern[4] = {
     0x4D544657,   // Ascii of "MTFW"
@@ -345,7 +394,7 @@ bool FwOperations::FwAccessCreate(fw_ops_params_t& fwParams, FBase **ioAccessP)
             u_int8_t* imgbuf;
             int sz;
             if ((sz = getMfaImg(fwParams.fileHndl, fwParams.psid, &imgbuf)) < 0) {
-                WriteToErrBuff(fwParams.errBuff,"Failed to get MFA Image.", fwParams.errBuffSize);
+                WriteToErrBuff(fwParams.errBuff, err2str(sz), fwParams.errBuffSize);
                 return false;
             }
             *ioAccessP = new FImage;
@@ -383,7 +432,7 @@ bool FwOperations::FwAccessCreate(fw_ops_params_t& fwParams, FBase **ioAccessP)
             u_int8_t* imgbuf;
             int sz;
             if ((sz = getMfaImg((u_int8_t*)fwParams.buffHndl, numInfo, fwParams.psid, &imgbuf)) < 0) {
-                WriteToErrBuff(fwParams.errBuff,"Failed to get MFA Image.", fwParams.errBuffSize);
+                WriteToErrBuff(fwParams.errBuff, err2str(sz), fwParams.errBuffSize);
                 return false;
             }
             *ioAccessP = new FImage;
@@ -441,8 +490,9 @@ u_int8_t FwOperations::CheckFwFormat(FBase& f, bool getFwFormatFromImg) {
                 ( ((Flash*)&f)->get_dev_id() == CX3_PRO_HW_ID)) {
             return FS_FS2_GEN;
         } else if ( (((Flash*)&f)->get_dev_id() == CONNECT_IB_HW_ID) ||
-                    (((Flash*)&f)->get_dev_id() == SWITCH_IB_HW_ID) ||
-		    (((Flash*)&f)->get_dev_id() == CX4_HW_ID)) {
+                    (((Flash*)&f)->get_dev_id() == SWITCH_IB_HW_ID)  ||
+                    (((Flash*)&f)->get_dev_id() == CX4_HW_ID)        ||
+                    (((Flash*)&f)->get_dev_id() == SWITCH_EN_HW_ID)) {
             return FS_FS3_GEN;
         }
     } else {
@@ -454,7 +504,7 @@ u_int8_t FwOperations::CheckFwFormat(FBase& f, bool getFwFormatFromImg) {
         if (found_images) {
             u_int32_t data;
             u_int8_t image_version;
-            READ4_NOERRMSG(f, FS3_IND_ADDR, &data);
+            READ4_NOERRMSG(f, image_start[0] + FS3_IND_ADDR, &data);
             TOCPU1(data);
             image_version = data >> 24;
             if (image_version == IMG_VER_FS3) {
@@ -475,6 +525,7 @@ FwOperations* FwOperations::FwOperationsCreate(void* fwHndl, void *info, char* p
     fwParams.hndlType = hndlType;
     fwParams.errBuff = errBuff;
     fwParams.errBuffSize = buffSize;
+    fwParams.shortErrors = true;
 
     if (hndlType == FHT_FW_FILE) {
         fwParams.fileHndl = (char*)fwHndl;
@@ -488,7 +539,7 @@ FwOperations* FwOperations::FwOperationsCreate(void* fwHndl, void *info, char* p
         fwParams.mstHndl = (char*)fwHndl;
         fwParams.forceLock = false;
         fwParams.readOnly = false;
-        fwParams.numOfBanks = 4;
+        fwParams.numOfBanks = -1;
         fwParams.flashParams = (flash_params_t*)NULL;
         fwParams.ignoreCacheRep = 0;
         fwParams.noFlashVerify = false;
@@ -529,6 +580,9 @@ FwOperations* FwOperations::FwOperationsCreate(fw_ops_params_t& fwParams)
     fwops->FwInit();
     if (fwParams.hndlType == FHT_FW_FILE) {
         fwops->_fname = strcpy(new char[strlen(fwParams.fileHndl)+ 1], fwParams.fileHndl);
+    }
+    if (fwParams.hndlType == FHT_MST_DEV) {
+        fwops->_devName = strcpy(new char[strlen(fwParams.mstHndl)+ 1], fwParams.mstHndl);
     }
     return fwops;
 }
@@ -638,11 +692,13 @@ bool FwOperations::CheckMac(u_int64_t mac) {
 void FwOperations::recalcSectionCrc(u_int8_t *buf, u_int32_t data_size) {
 
     Crc16              crc;
+    u_int32_t crcRes;
     for (u_int32_t i = 0; i < data_size; i += 4) {
         crc << __be32_to_cpu(*(u_int32_t*)(buf + i));
     }
     crc.finish();
-    *((u_int32_t*)(buf + data_size)) = __cpu_to_be32(crc.get());
+    crcRes = crc.get();
+    *((u_int32_t*)(buf + data_size)) = __cpu_to_be32(crcRes);
 }
 
 chip_type_t FwOperations::getChipType() {
@@ -660,38 +716,42 @@ chip_type_t FwOperations::getChipType() {
     return CT_UNKNOWN;
 }
 
-chip_type_t FwOperations::getChipTypeFromHwDevid(u_int32_t hwDevId) {
+bool FwOperations::getInfoFromHwDevid(u_int32_t hwDevId, chip_type_t& chipT, const u_int32_t ** swIds) {
     int i = 0;
     while (hwDevData[i].name != NULL) {
         if (hwDevData[i].hwDevId == hwDevId) {
-            return hwDevData[i].chipType;
+            chipT = hwDevData[i].chipType;
+            *swIds = hwDevData[i].swDevIds;
+            return true;
         }
             i++;
-        }
-    return CT_UNKNOWN;
+    }
+    return errmsg("Failed to identify device ID(MT%d).", hwDevId);
 }
 
-// TODO:combine both databases(hwDevData and hwDev2Str) and remove old unsupporded devices i.e tavor arbel sinai
+// TODO:combine both databases(hwDevData and hwDev2Str) and remove old unsupporded devices i.e infinihost infinihost_iii_ex infinihost_iii_lx
 const FwOperations::HwDevData FwOperations::hwDevData[] = {
-    { "InfiniHost",        TAVOR_HW_ID, CT_UNKNOWN, 2, {23108, 0}},
-    { "InfiniHost III Ex", ARBEL_HW_ID, CT_UNKNOWN,2 , {25208, 25218, 0}},
-    { "InfiniHost III Lx", SINAI_HW_ID, CT_UNKNOWN, 1, {25204, 0}},
+    { "InfiniHost",        INFINIHOST_HW_ID, CT_UNKNOWN, 2, {23108, 0}},
+    { "InfiniHost III Ex", INFINIHOST_III_EX_HW_ID, CT_UNKNOWN,2 , {25208, 25218, 0}},
+    { "InfiniHost III Lx", INFINIHOST_III_LX_HW_ID, CT_UNKNOWN, 1, {25204, 0}},
     { "ConnectX",          CX_HW_ID, CT_CONNECTX, 2,  {25408, 25418, 26418, 26438,
                                          26428, 25448, 26448, 26468,
                                          25458, 26458, 26478, 26488,
                                          4097, 4098, 0}},
-    { "ConnectX3",        CX3_HW_ID, CT_CONNECTX, 2,  {4099, 4100, 4101, 4102,
-                                         4103, 4104, 4105, 4106,
+    { "ConnectX-3",        CX3_HW_ID, CT_CONNECTX, 2,  {4099, 4100, 4101, 4102,
+                                         4104, 4105, 4106,
                                          4107, 4108, 4109, 4110,
                                          4111, 4112, 0}},
-    { "Connect_IB",        CONNECT_IB_HW_ID, CT_CONNECT_IB, 2, {CONNECT_IB_SW_ID, 4114, 4115, 4116,
+    { "ConnectX-3Pro",    CX3_PRO_HW_ID, CT_CONNECTX, 2, {4103,0}},
+    { "Connect_IB",       CONNECT_IB_HW_ID, CT_CONNECT_IB, 2, {CONNECT_IB_SW_ID, 4114, 4115, 4116,
                                          4117, 4118, 4119, 4120,
                                          4121, 4122, 4123, 4124, 0}},
     { "InfiniScale IV",   IS4_HW_ID, CT_IS4, 0, {48436, 48437, 48438, 0}},
     { "BridgeX",          BRIDGEX_HW_ID, CT_BRIDGEX, 0, {64102, 64112, 64122, 0}},
     { "SwitchX",          SWITCHX_HW_ID, CT_SWITCHX, 0, {51000, 0}},
     { "Switch_IB",        SWITCH_IB_HW_ID, CT_SWITCH_IB,0, {52000, 0}},
-    { "ConnectX4",		  CX4_HW_ID,	 CT_CONNECTX,	0, {4115, 0}},
+    { "ConnectX-4",		  CX4_HW_ID,	 CT_CONNECTX,	0, {4115, 0}},
+    { "Switch_EN",        SWITCH_EN_HW_ID,CT_SWITCH_EN,   0, {52100, 0}},
     { (char*)NULL ,              0, CT_UNKNOWN, 0, {0}},// zero devid terminator
 };
 
@@ -701,17 +761,19 @@ const FwOperations::HwDev2Str FwOperations::hwDev2Str[] = {
         {"ConnectX-2",        CX_HW_ID,         0xB0},
         {"ConnectX-3 A0",     CX3_HW_ID,        0x00},
         {"ConnectX-3 A1",     CX3_HW_ID,        0x01},
-        {"ConnectX-4",        CX4_HW_ID,  	0x00},
+        {"ConnectX-3Pro",     CX3_PRO_HW_ID,    0x00},
+        {"ConnectX-4",        CX4_HW_ID,        0x00},
         {"SwitchX A0",        SWITCHX_HW_ID,    0x00},
         {"SwitchX A1",        SWITCHX_HW_ID,    0x01},
         {"BridgeX",           BRIDGEX_HW_ID,    0xA0},
         {"InfiniScale IV A0", IS4_HW_ID,        0xA0},
         {"InfiniScale IV A1", IS4_HW_ID,        0xA1},
-        {"InfiniHost A0",     TAVOR_HW_ID,      0xA0},
-        {"InfiniHost A1",     TAVOR_HW_ID,      0xA1},
-        {"InfiniHost III Lx", SINAI_HW_ID,      0xA0},
-        {"InfiniHost III Ex", ARBEL_HW_ID,      0xA0},
+        {"InfiniHost A0",     INFINIHOST_HW_ID,      0xA0},
+        {"InfiniHost A1",     INFINIHOST_HW_ID,      0xA1},
+        {"InfiniHost III Lx", INFINIHOST_III_LX_HW_ID,      0xA0},
+        {"InfiniHost III Ex", INFINIHOST_III_EX_HW_ID,      0xA0},
         {"SwitchIB A0",       SWITCH_IB_HW_ID,  0x00},
+        {"SwitchEN A0",       SWITCH_EN_HW_ID,  0x00},
         { (char*)NULL ,       (u_int32_t)0, (u_int8_t)0x00}, // zero device ID terminator
 };
 
@@ -856,10 +918,12 @@ bool FwOperations::CheckPSID(FwOperations &imageOps, u_int8_t allow_psid_change)
 
 bool FwOperations::CheckFwVersion(FwOperations &imageOps, u_int8_t forceVersion)
 {
-    bool updateRequired = true;
+    FwVerInfo updateRequired = FVI_UNKNOWN;
     if (!forceVersion) {
-        updateRequired = FwVerLessThan(_fwImgInfo.ext_info.fw_ver, imageOps._fwImgInfo.ext_info.fw_ver);
-        if (!updateRequired) {
+        updateRequired = FwVerLessThan(_fwImgInfo.ext_info.fw_ver, imageOps._fwImgInfo.ext_info.fw_ver, _fwImgInfo.fwType);
+        if (updateRequired == FVI_UNKNOWN) {
+            return errmsg("Cannot compare between FW versions(different branches)");
+        } else if (updateRequired != FVI_SMALLER ) {
             return errmsg("FW is already updated.");
         }
     }
@@ -1123,10 +1187,10 @@ bool FwOperations::RomInfo::GetExpRomVerForOneRom(u_int32_t verOffset)
     // Following mlxsign:
     // 31:24    0    Compatible with UEFI
     // 23:16    ProductID   Product ID:
-    //                          0x1 - CLP implementation for Sinai (MT25408)
-    //                          0x2 - CLP implementation for Hermon DDR (MT25418)
-    //							0x3 - CLP implementation for Hermon QDR (MT26428)
-    //							0x4 - CLP implementation for Hermon ETHERNET (MT25448)
+    //                          0x1 - CLP implementation for InfiniHost_III_Lx (MT25408)
+    //                          0x2 - CLP implementation for Connectx DDR (MT25418)
+    //							0x3 - CLP implementation for Connectx QDR (MT26428)
+    //							0x4 - CLP implementation for Connectx ETHERNET (MT25448)
     //                          0X10 - PXE
     //							0x11 - UEFI
     //							0x12 - CLP with device ID and Version
@@ -1141,7 +1205,7 @@ bool FwOperations::RomInfo::GetExpRomVerForOneRom(u_int32_t verOffset)
     // 15:0 SubMinor version    Product sub minor version*. Not valid if
     //                                  ProductID < 0x10 or == 0x12.
     //
-    // 31:16    Device ID   The PCI Device ID (ex. 0x634A for Hermon
+    // 31:16    Device ID   The PCI Device ID (ex. 0x634A for Connectx
     //                          DDR). Not valid if ProductID < 0x10.
     // 15:12    Port Number Port number: 0 - Port independent, 1 - Port 1, 2 - Port 2
     //  8:11    Reserved
@@ -1243,10 +1307,13 @@ bool FwOperations::ReadImageFile(const char *fimage, u_int8_t *&file_data, int &
     }
     rewind(fh);
 
-    if (min_size > read_file_size) {
-        file_size = min_size;
-    } else {
-        file_size = read_file_size;
+    file_size = read_file_size;
+    if (min_size != -1) {// take min of min_size and read_file_size
+        if (min_size < 0) {
+            fclose(fh);
+            return errmsg("Internal error, minimal image read size cannot be negative.");
+        }
+        file_size = ( min_size > read_file_size ) ? min_size : read_file_size;
     }
 
     file_data = new u_int8_t[file_size];
@@ -1268,8 +1335,8 @@ void FwOperations::SetDevFlags(chip_type_t chipType, u_int32_t devType, fw_img_t
         ibDev = true;
         ethDev = true;
     } else {
-        ibDev  = (fwType == FIT_FS3) || !CntxEthOnly(devType);
-        ethDev = chipType == CT_CONNECTX;
+        ibDev  = (fwType == FIT_FS3 && chipType != CT_SWITCH_EN) || !CntxEthOnly(devType);
+        ethDev = (chipType == CT_CONNECTX) || (chipType == CT_SWITCH_EN);
     }
 
     if ((!ibDev && !ethDev) || chipType == CT_UNKNOWN) {
@@ -1288,7 +1355,9 @@ void FwOperations::SetDevFlags(chip_type_t chipType, u_int32_t devType, fw_img_t
 bool FwOperations::IsFwSupportingRomModify(u_int16_t fw_ver[3])
 {
     u_int16_t supported_fw[3] = {MAJOR_MOD_ROM_FW,  MINOR_MOD_ROM_FW, SUBMINOR_MOD_ROM_FW};
-    return !FwVerLessThan(fw_ver, supported_fw);
+    // only used in connectx (FS2)
+    FwVerInfo verInfo = FwVerLessThan(fw_ver, supported_fw, FIT_FS2);
+    return ((verInfo == FVI_EQUAL) || (verInfo == FVI_GREATER));
 }
 
 bool FwOperations::checkMatchingExpRomDevId(const fw_info_t& info)
@@ -1305,7 +1374,7 @@ bool FwOperations::checkMatchingExpRomDevId(const fw_info_t& info)
 }
 
 
-bool FwOperations::checkMatchingExpRomDevId(u_int16_t dev_type, roms_info_t roms_info)
+bool FwOperations::checkMatchingExpRomDevId(u_int16_t dev_type, const roms_info_t& roms_info)
 {
     if ((roms_info.num_of_exp_rom > 0) && (dev_type)
             && (roms_info.exp_rom_com_devid != EXP_ROM_GEN_DEVID) \
@@ -1399,23 +1468,23 @@ const char* FwOperations::expRomType2Str(u_int16_t type)
 {
 	switch (type) {
 	        case 0x1:
-	            return "CLP1 ";
+	            return "CLP1";
 	        case 0x2:
-	        	return "CLP2 ";
+	        	return "CLP2";
 	        case 0x3:
-	        	return "CLP3 ";
+	        	return "CLP3";
 	        case 0x4:
-	        	return "CLP4 ";
+	        	return "CLP4";
 	        case 0xf:
-	        	return "CLP "; // hack as 0xf isnt always CLP (its type is defined in the free string inside the ROM)
+	        	return "CLP"; // hack as 0xf isnt always CLP (its type is defined in the free string inside the ROM)
 	        case 0x10:
-	        	return "PXE  ";
+	        	return "PXE";
 	        case 0x11:
-	        	return "UEFI ";
+	        	return "UEFI";
 	        case 0x12:
-	        	return "CLP ";
+	        	return "CLP";
 	        case 0x21:
-	        	return "FCODE ";
+	        	return "FCODE";
 	        default:
 	            return (const char*)NULL;
 	        }

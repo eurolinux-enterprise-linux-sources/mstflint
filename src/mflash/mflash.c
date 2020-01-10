@@ -34,7 +34,6 @@
 
 // TODO: remove all commented defines and ifdefs of __be32.... or __cpu_to_be32... etc (they are taken from compatibility.h now)
 #ifdef IRISC
-#include <tavor_mac.h>
 //#define __cpu_to_be32(val) (val)
 #define NULL 0
 
@@ -45,8 +44,10 @@
 #include <errno.h>
 #include <string.h>
 
-#include "bit_slice.h"
-#include "mtcr.h"
+#include <common/bit_slice.h>
+#include <mtcr.h>
+#include <reg_access.h>
+#include <tools_cif.h>
 
 #include "mflash_pack_layer.h"
 #include "mflash_access_layer.h"
@@ -96,17 +97,61 @@
 
 #include <io.h>
 #include <Winsock2.h>
+#include <windows.h>
 #define SWAPL(l) ntohl(l)
 #define inline __inline
 
 #define OP_NOT_SUPPORTED EINVAL
-#define usleep(x) Sleep(((x + 999)/1000) )
+#define usleep(x) Sleep(((x + 999)/1000))
 
 #endif // __WIN__
 #endif
 
 #ifndef zero
 #define zero 0
+#endif
+
+// Timer definitions (needed when polling flash semaphore in windows)
+#ifndef __WIN__
+#define TIMER_INIT(...)
+#define TIMER_STOP(...)
+#define TIMER_PRINT(...)
+#define TIMER_GET_DIFF(...)
+#define TIMER_INIT_AND_START(...)
+#define TIMER_STOP_GET_DIFF(...)
+#define TIMER_CHECK(...)
+#else
+#include <windows.h>
+#define TIMER_INIT()\
+    SYSTEMTIME _start, _end;\
+    int _diff_in_sec, _diff_in_ms;\
+    (void)_diff_in_sec;\
+    (void)_diff_in_ms
+#define TIMER_START()\
+    GetSystemTime(&_start)
+#define TIMER_STOP()\
+    GetSystemTime(&_end)
+#define TIMER_PRINT(...)\
+    _diff_in_sec = _end.wSecond - _start.wSecond;\
+    _diff_in_ms = (_end.wMilliseconds - _start.wMilliseconds;\
+    printf(__VA_ARGS__);\
+    printf("it took %d sec %d and ms to run.\n", _diff_in_sec, _diff_in_ms)
+#define TIMER_GET_DIFF(diff_in_sec, diff_in_ms)\
+    diff_in_sec = _end.wSecond - _start.wSecond;\
+    diff_in_ms = _end.wMilliseconds - _start.wMilliseconds
+#define TIMER_INIT_AND_START()\
+    TIMER_INIT();\
+    TIMER_START()
+#define TIMER_STOP_GET_DIFF(diff_in_sec, diff_in_ms)\
+    TIMER_STOP();\
+    TIMER_GET_DIFF(diff_in_sec, diff_in_ms)
+#define TIMER_CHECK(max_sec, max_ms, action_on_tout)\
+    TIMER_STOP();\
+    _diff_in_sec = _end.wSecond - _start.wSecond;\
+    _diff_in_ms = _end.wMilliseconds - _start.wMilliseconds;\
+    if (_diff_in_sec >= max_sec && _diff_in_ms > max_ms) {\
+        action_on_tout;\
+    }
 #endif
 
 //
@@ -126,9 +171,14 @@
 int mf_open_fw(mflash* mfl, flash_params_t* flash_params, int num_of_banks);
 int cntx_int_spi_get_status_data(mflash* mfl, u_int8_t op_type, u_int32_t* status, u_int8_t data_num);
 
+// forward decl:
+int mfl_com_lock(mflash* mfl);
+int release_semaphore(mflash* mfl, int ignore_writer_lock);
+
 
 // NOTE: This macro returns ... not nice.
 #define CHECK_RC(rc) do {if (rc) return rc;} while(0)
+#define CHECK_RC_REL_SEM(mfl, rc) do {if (rc) {release_semaphore(mfl, 0); return rc;}} while(0)
 
 #define ARRSIZE(arr) (sizeof(arr)/sizeof(arr[0]))
 
@@ -168,7 +218,7 @@ int cntx_int_spi_get_status_data(mflash* mfl, u_int8_t op_type, u_int32_t* statu
 #define ADDR_MSK       0x7ffffUL
 #define CMD_MASK       0xe0000000UL
 
-#define SST_STATUS_REG_VAL   0x80000000
+#define SST_STATUS_REG_VAL   0x80
 #define ATMEL_STATUS_REG_VAL 0x0
 
 #define CPUMODE_MSK    0xc0000000UL
@@ -176,13 +226,44 @@ int cntx_int_spi_get_status_data(mflash* mfl, u_int8_t op_type, u_int32_t* statu
 #define CPUMODE        0xf0150
 
 #define SWITCHX_HW_ID 0x245
-#define HERMON_HW_ID  0x190
+#define CONNECTX_HW_ID  0x190
 #define CX3_PRO_HW_ID 0x1F7
 #define CX3_HW_ID     0x1F5
 #define CX4_HW_ID	  0x209
 
 #define CONNECT_IB_HW_ID 0x1FF
 #define SWITCH_IB_HW_ID 0x247
+#define SWITCH_EN_HW_ID 0x249
+
+/*
+ * Device IDs Macros:
+ */
+
+#define IS_CONNECTX_4TH_GEN_FAMILY(dev_id) \
+        (((dev_id) == CONNECTX_HW_ID) || ((dev_id) == CX3_HW_ID) || ((dev_id) == CX3_PRO_HW_ID))
+#define IS_SX(dev_id) \
+        ((dev_id) == SWITCHX_HW_ID)
+#define IS_SIB(dev_id) \
+        ((dev_id) == SWITCH_IB_HW_ID)
+#define IS_SEN(dev_id) \
+        ((dev_id) == SWITCH_EN_HW_ID)
+#define IS_IS4_FAMILY(dev_id) \
+    (((dev_id) == 435) || ((dev_id) == 6100)) // 435 == InfiniScaleIV, 6100 == BridgeX
+#define IS_CONNECT_IB(dev_id) \
+        ((dev_id) ==CONNECT_IB_HW_ID)
+#define IS_CONNECTX4(dev_id) \
+        ((dev_id) ==CX4_HW_ID)
+#define HAS_ICMD_IF(dev_id) \
+    ((IS_CONNECT_IB(dev_id)) || (IS_SIB(dev_id)) || (IS_CONNECTX4(dev_id)) || (IS_SEN(dev_id)))
+#define IS_SWITCH(dev_id) \
+       ((IS_IS4_FAMILY(dev_id)) || (IS_SX(dev_id)) || (IS_SIB(dev_id)) || (IS_SEN(dev_id)))
+#define IS_REALLY_OLD_DEVICE(dev_id) \
+        (((dev_id) == 23108) || ((dev_id) == 25208) || ((dev_id) == 24204) || ((dev_id) == 25204))
+#define IS_OLD_DEVICE(dev_id) \
+    ((IS_REALLY_OLD_DEVICE(dev_id)) || (IS_CONNECTX_4TH_GEN_FAMILY(dev_id)))
+#define SUPPORTS_SW_RESET(devid)\
+        (((devid) == 435) || ((devid) == SWITCHX_HW_ID) || ((devid) == SWITCH_IB_HW_ID))
+
 
 // Write/Erase delays
 // ------------------
@@ -207,7 +288,9 @@ enum FlashConstant {
     ERASE_SUBSECTOR_RETRIES      = 10000,
 
     FLASH_CMD_CNT  = 5000,      // Number of reads till flash cmd is zeroed
+
     GPIO_SEM_TRIES = 1024 ,     // Number of tries to obtain a GPIO sem.
+
     MAX_WRITE_BUFFER_SIZE = 256 // Max buffer size for buffer write devices
 };
 
@@ -250,11 +333,7 @@ static u_int32_t log2up (u_int32_t in) {
 }
 
 // ConnectX SPI interface:
-int cntx_flash_init      (mflash* mfl, flash_params_t* flash_params);
-
-int cntx_fill_attr       (mflash* mfl);
-
-int cntx_flash_read      (mflash* mfl, u_int32_t addr, u_int32_t len, u_int8_t* data);
+int cntx_flash_init            (mflash* mfl, flash_params_t* flash_params);
 
 int cntx_st_spi_reset          (mflash* mfl);
 int cntx_st_spi_erase_sect     (mflash* mfl, u_int32_t addr);
@@ -282,7 +361,7 @@ int cntx_st_spi_block_read_ex  (mflash*   mfl,
 
 int cntx_spi_get_type(mflash* mfl, u_int8_t op_type, u_int8_t *vendor, u_int8_t *type, u_int8_t *capacity);
 
-int cntx_spi_write_status_reg(mflash* mfl, u_int32_t status_reg, u_int8_t write_cmd, u_int8_t status_is_double);
+int cntx_spi_write_status_reg(mflash* mfl, u_int32_t status_reg, u_int8_t write_cmd, u_int8_t bytes_num);
 
 int spi_get_num_of_flashes(int prev_num_of_flashes);
 
@@ -642,7 +721,7 @@ int cntx_get_flash_info(mflash* mfl, unsigned *type_index, int *log2size, u_int8
         // RDID Succeded.
         // Get the capacity
         if (get_log2size_by_capcity(*type_index, capacity, log2size) != MFE_OK) {
-            printf("-E- SST SPI flash #%d (vendor: %#x, type: %#x, capacity:%#x) is not supported.\n", mfl->curr_bank, vendor,
+            printf("-E- SST SPI flash #%d (vendor: %#x, type: %#x, capacity:%#x) is not supported.\n", get_bank_int(mfl), vendor,
                     type, capacity);
             return MFE_UNSUPPORTED_FLASH_TOPOLOGY;
         }
@@ -666,7 +745,7 @@ int cntx_get_flash_info(mflash* mfl, unsigned *type_index, int *log2size, u_int8
     }
 
     if (rc == MFE_UNSUPPORTED_FLASH_TYPE) {
-        printf("-E- SPI flash #%d (vendor: %#x, memory type: %#x, es: %#x) is not supported.\n", mfl->curr_bank, vendor, type, es);
+        printf("-E- SPI flash #%d (vendor: %#x, memory type: %#x, es: %#x) is not supported.\n", get_bank_int(mfl), vendor, type, es);
     }
     // printf("-D- rc = %d, no_flash_res = %d, type_index = %d.\n", rc, no_flash_res, *type_index);
     return rc;
@@ -698,13 +777,21 @@ int cntx_st_spi_get_status(mflash* mfl, u_int8_t op_type, u_int8_t* status) {
     *status = EXTRACT(flash_data, 0, 8);
     return MFE_OK;
 }
+
+int get_num_of_banks_int(mflash *mfl) {
+    int num;
+    if ( (mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] != ATBM_NO) && ((num = get_num_of_banks(mfl->mf)) != -1) ){
+        return num; // if mfpa register is supported get the exact number of flash banks
+    }
+    return mfl->opts[MFO_NUM_OF_BANKS];
+}
+
 int get_flash_params(mflash* mfl, flash_params_t *flash_params, unsigned *type_index)
 {
-    int num_of_flashes = mfl->opts[MFO_NUM_OF_BANKS];
+    int num_of_flashes = get_num_of_banks_int(mfl);
     int spi_sel, rc;
     int params_were_set = 0;
     flash_info_t *flash_info;
-
     memset(flash_params, 0, sizeof(flash_params_t));
 
     for (spi_sel = 0 ; spi_sel < num_of_flashes ; spi_sel++) {
@@ -736,9 +823,9 @@ int get_flash_params(mflash* mfl, flash_params_t *flash_params, unsigned *type_i
             // Init SST flash.
             if (mfl->access_type == MFAT_MFILE) {
                 if (flash_info->vendor ==  FV_SST && flash_info->type == FMT_SST_25) {
-                    rc = cntx_spi_write_status_reg(mfl, SST_STATUS_REG_VAL, SFC_WRSR, 0); CHECK_RC(rc);
+                    rc = cntx_spi_write_status_reg(mfl, SST_STATUS_REG_VAL, SFC_WRSR, 1); CHECK_RC(rc);
                 } else if (flash_info->vendor ==  FV_ATMEL && flash_info->type == FMT_ATMEL) {
-                    rc = cntx_spi_write_status_reg(mfl, ATMEL_STATUS_REG_VAL, SFC_WRSR, 0); CHECK_RC(rc);
+                    rc = cntx_spi_write_status_reg(mfl, ATMEL_STATUS_REG_VAL, SFC_WRSR, 1); CHECK_RC(rc);
                 }
             }
 
@@ -777,7 +864,6 @@ int spi_fill_attr_from_params(mflash* mfl, flash_params_t* flash_params, unsigne
 
 #define GET_FLASH_RETRY 2
 int st_spi_fill_attr(mflash* mfl, flash_params_t* flash_params) {
-
     int rc;
     flash_params_t *cur_flash_params, tmp_flash_params;
     unsigned type_index;
@@ -834,6 +920,10 @@ int read_chunks   (mflash* mfl, u_int32_t addr, u_int32_t len, u_int8_t* data) {
     int       rc;
     u_int8_t  *p         = (u_int8_t *)data;
 
+    if (!mfl) {
+        return MFE_BAD_PARAMS;
+    }
+
     // Note:
     // Assuming read block is the same as write block size.
     // This is true for current Mellanox devices SPI flash access implementation.
@@ -841,23 +931,12 @@ int read_chunks   (mflash* mfl, u_int32_t addr, u_int32_t len, u_int8_t* data) {
     u_int32_t block_size = mfl->attr.block_write;
     u_int32_t block_mask;
 
-
     // TODO - Check MAX_WRITE_BUFFER_SIZE against block_size in open (or here)
     u_int8_t  tmp_buff[MAX_WRITE_BUFFER_SIZE];
-
-    if (!mfl) {
-        return MFE_BAD_PARAMS;
-    }
-
-    if (len < block_size) {
-        // If we're reading a small chunk, use the smallest block_size to avoid the extra reads and padding overhead
-        block_size = 4;
-    }
 
     block_mask = ~(block_size - 1);
 
     while (len) {
-
         u_int32_t i;
         u_int32_t prefix_pad_size = 0;
         u_int32_t suffix_pad_size = 0;
@@ -887,7 +966,6 @@ int read_chunks   (mflash* mfl, u_int32_t addr, u_int32_t len, u_int8_t* data) {
             data_size -= prefix_pad_size;
             block_data = tmp_buff;
         }
-
         rc = mfl->f_read_blk(mfl, block_addr, block_size, block_data); CHECK_RC(rc);
 
         if (suffix_pad_size || prefix_pad_size) {
@@ -907,9 +985,6 @@ int read_chunks   (mflash* mfl, u_int32_t addr, u_int32_t len, u_int8_t* data) {
 
     return MFE_OK;
 }
-
-
-
 
 ////////////////////////////////////////
 //
@@ -1035,67 +1110,10 @@ int empty_set_bank(mflash* mfl, u_int32_t bank) {
     return MFE_OK;
 }
 
-int is_connectx_family(u_int32_t dev_id) {
-    if (dev_id == HERMON_HW_ID ||  // Hermon
-        dev_id == CX3_HW_ID || // CX3
-        dev_id == CX3_PRO_HW_ID) {     // Bental
-        return 1;
-    }
-    return 0;
-
-}
-
-int is_sx(u_int32_t dev_id) {
-    if (dev_id == SWITCHX_HW_ID) {
-        return 1;
-    }
-    return 0;
-}
-int is_sx_ib(u_int32_t dev_id) {
-    if (dev_id == SWITCH_IB_HW_ID) {
-        return 1;
-    }
-    return 0;
-}
-int is_is4_family(u_int32_t dev_id) {
-    if (dev_id == 435  ||  // InfiniScaleIV
-        dev_id == 6100) { // BridgeX
-        return 1;
-    }
-    return 0;
-}
-
-int is_connectib(u_int32_t dev_id) {
-    if (dev_id == CONNECT_IB_HW_ID) {
-        return 1;
-    }
-    return 0;
-}
-
-int is_connectx4(u_int32_t dev_id) {
-	return (dev_id == CX4_HW_ID) ? 1 : 0;
-}
-
-int has_icmd_if(u_int32_t dev_id) {
-	return	(is_connectib(dev_id) ||
-			 is_sx_ib(dev_id) ||
-			 is_connectx4(dev_id));
-
-}
-
-int is_4th_gen_switch_family(u_int32_t dev_id) {
-    if (is_is4_family(dev_id) ||
-        is_sx(dev_id)         ||
-        is_connectib(dev_id)  ||
-        is_sx_ib(dev_id)) {
-        return 1;
-    }
-    return 0;
-}
-
 int cntx_exec_cmd(mflash* mfl, u_int32_t gw_cmd, char* msg) {
-    if (is_4th_gen_switch_family(mfl->attr.hw_dev_id)) {
-        // For Infiniscale4 and BridgeX: keep the GW locked during flash ops
+    if (!IS_OLD_DEVICE(mfl->attr.hw_dev_id)) {
+        // for old devices lock bit is separate from the flash HW ifc
+        //for new devices need to make sure this bit remains locked when writing the dword
         gw_cmd = MERGE(gw_cmd,              1,       31,                       1);
     }
     gw_cmd = MERGE(gw_cmd,              1, HBO_BUSY,                       1);
@@ -1107,28 +1125,113 @@ int cntx_exec_cmd(mflash* mfl, u_int32_t gw_cmd, char* msg) {
     return gw_wait_ready(mfl, msg);
 }
 
-int cntx_int_spi_get_status_data(mflash* mfl, u_int8_t op_type, u_int32_t* status, u_int8_t data_num)
+/*
+ * execute a flash GW command and get the output: data0...data3 from the flash interface
+ *
+ * mfl - pointer to an initilized mflash obj
+ * gw_cmd - the flash gateway command to execute
+ * buff - pointer to a buffer where the output data from the flash GW will be written to
+ * buff_dword_sz - size for buff in dwords
+ * addr - if != NULL *addr will be written to the addr bits of the flash GW. (for commands that read from flash)
+ * msg - optional string that describes the action for debug purposes, not used ATM however its recommended to put usefull
+ *        data for future dubugabillity.
+ * return : MFE_OK (0) upon success or a value != 0 upon error accroding to mlfash error code.
+ */
+int cntx_exec_cmd_get(mflash* mfl, u_int32_t gw_cmd, u_int32_t* buff,int buff_dword_sz, u_int32_t* addr, char* msg)
+{
+    int rc;
+    if (!mfl ||!buff || !buff_dword_sz) {
+        return MFE_BAD_PARAMS;
+    }
+
+    rc = mfl_com_lock(mfl); CHECK_RC(rc);
+
+    // write GW addr if needed
+    if (addr) {
+        if (mwrite4(mfl->mf, HCR_FLASH_ADDR, *addr) != 4) {
+            release_semaphore(mfl, 0);
+            return MFE_CR_ERROR;
+        }
+    }
+    // execute gw command
+    rc = cntx_exec_cmd(mfl, gw_cmd, msg); CHECK_RC_REL_SEM(mfl, rc);
+    // copy data from CR-space to buff
+    if (mread4_block(mfl->mf, HCR_FLASH_DATA, buff, (buff_dword_sz << 2)) != (buff_dword_sz << 2 )) {
+        release_semaphore(mfl, 0);
+        return MFE_CR_ERROR;
+    }
+    //release semaphore
+    release_semaphore(mfl, 0);
+    return MFE_OK;
+}
+
+/*
+ * Set input in: data0...data3 from the flash interface and execute a flash GW command
+ *
+ * mfl - pointer to an initilized mflash obj
+ * gw_cmd - the flash gateway command to execute
+ * buff - if != NULL pointer to a buffer to the input data for the flash GW.
+ * buff_dword_sz - size for buff in dwords
+ * addr - if != NULL *addr will be written to the addr bits of the flash GW. (for commands that write from flash)
+ * msg - optional string that describes the action for debug purposes, not used ATM however its recommended to put usefull
+ *        data for future dubugabillity.
+ * return : MFE_OK (0) upon success or a value != 0 upon error accroding to mlfash error code.
+ */
+int cntx_exec_cmd_set(mflash* mfl, u_int32_t gw_cmd, u_int32_t* buff,int buff_dword_sz, u_int32_t* addr, char* msg)
+{
+    int rc;
+    if (!mfl) {
+        return MFE_BAD_PARAMS;
+    }
+
+    rc = mfl_com_lock(mfl); CHECK_RC(rc);
+
+    // write data from buff to CR-space
+    if (buff && buff_dword_sz) {
+        if (mwrite4_block(mfl->mf, HCR_FLASH_DATA, buff, (buff_dword_sz << 2)) != (buff_dword_sz << 2 )) {
+            release_semaphore(mfl, 0);
+            return MFE_CR_ERROR;
+        }
+    }
+
+    // write GW addr if needed
+    if (addr) {
+        if (mwrite4(mfl->mf, HCR_FLASH_ADDR, *addr) != 4) {
+            release_semaphore(mfl, 0);
+            return MFE_CR_ERROR;
+        }
+    }
+    // execute gw command
+    rc = cntx_exec_cmd(mfl, gw_cmd, msg); CHECK_RC_REL_SEM(mfl, rc);
+
+    //release semaphore
+    release_semaphore(mfl, 0);
+    return MFE_OK;
+}
+
+int cntx_int_spi_get_status_data(mflash* mfl, u_int8_t op_type, u_int32_t* status, u_int8_t bytes_num)
 {
     int rc;
 
     u_int32_t gw_cmd  = 0;
     u_int32_t flash_data = 0;
-
+    //TODO: adrianc: update msize from log2(bytes_num)
     gw_cmd = MERGE(gw_cmd,       1, HBO_READ_OP,    1);
     gw_cmd = MERGE(gw_cmd,       1, HBO_CMD_PHASE,  1);
-    gw_cmd = MERGE(gw_cmd,       1, HBO_DATA_PHASE, data_num);
+    gw_cmd = MERGE(gw_cmd,       1, HBO_DATA_PHASE, 1);
     gw_cmd = MERGE(gw_cmd,       2, HBO_MSIZE,      HBS_MSIZE);
 
     gw_cmd = MERGE(gw_cmd, op_type, HBO_CMD,        HBS_CMD);
 
-    rc = cntx_exec_cmd(mfl, gw_cmd, "Read id");  CHECK_RC(rc);
-
-    MREAD4(HCR_FLASH_DATA, &flash_data);
+    if (bytes_num > 8) {
+        // self check
+        printf("-E- attempting to read %d bytes from register but only 8 bytes are read!\n", bytes_num);
+        return MFE_UNKNOWN_REG;
+    }
+    rc = cntx_exec_cmd_get(mfl, gw_cmd, &flash_data, 1, NULL, "Read id");  CHECK_RC(rc);
 
     // printf("-D- cntx_int_spi_get_status_data: op=%02x status=%08x\n", op_type, flash_data);
-    // Return status reg byte is at offset 3 in word
-    *status = flash_data;
-
+    *status = (flash_data >> 8*(4 - bytes_num));
     return MFE_OK;
 }
 
@@ -1140,7 +1243,7 @@ int cntx_st_spi_write_enable(mflash* mfl) {
     gw_cmd = MERGE(gw_cmd, SFC_WREN, HBO_CMD,       HBS_CMD);
 
 
-    rc = cntx_exec_cmd(mfl, gw_cmd, "WREN command"); CHECK_RC(rc);
+    rc = cntx_exec_cmd_set(mfl, gw_cmd, NULL, 0, NULL, "WREN command"); CHECK_RC(rc);
 
     //gw_cmd =  MERGE(gw_cmd, 1               , HBO_CS_HOLD,    1);
 
@@ -1149,14 +1252,33 @@ int cntx_st_spi_write_enable(mflash* mfl) {
     return MFE_OK;
 }
 
+/*
+ * Consts needed to extract the needed data for the jedec ID
+ *  from various flash types.
+ */
+enum {
+    JEDEC_ATMEL_CAPACITY_BITOFF = 16,
+    JEDEC_ATMEL_CAPACITY_BITLEN = 5,
+    JEDEC_ATMEL_TYPE_BITOFF = 21,
+    JEDEC_ATMEL_TYPE_BITLEN = 3,
+
+    JEDEC_VENDOR_ID_BITOFF = 24,
+    JEDEC_VENDOR_ID_BITLEN = 8,
+
+    JEDEC_CAPACITY_BITOFF = 8,
+    JEDEC_CAPACITY_BITLEN = 8,
+
+    JEDEC_TYPE_BITOFF = 16,
+    JEDEC_TYPE_BITLEN = 8
+};
 
 
-int get_flash_info_for_atmel(u_int32_t jededc_id, u_int8_t* type, u_int8_t* capacity)
+int get_flash_info_for_atmel(u_int32_t jedec_id, u_int8_t* type, u_int8_t* capacity)
 {
     u_int8_t tmp_cap;
 
-    tmp_cap = EXTRACT(jededc_id, 8, 5);
-    *type   = EXTRACT(jededc_id, 13, 3);
+    tmp_cap = EXTRACT(jedec_id, JEDEC_ATMEL_CAPACITY_BITOFF, JEDEC_ATMEL_CAPACITY_BITLEN);
+    *type   = EXTRACT(jedec_id, JEDEC_ATMEL_TYPE_BITOFF, JEDEC_ATMEL_TYPE_BITLEN);
     switch (tmp_cap) {
         case 0x4:
             *capacity = 0x13;
@@ -1177,16 +1299,15 @@ int get_flash_info_for_atmel(u_int32_t jededc_id, u_int8_t* type, u_int8_t* capa
     return MFE_OK;
 
 }
-int get_info_from_jededc_id(u_int32_t jededc_id, u_int8_t *vendor, u_int8_t* type, u_int8_t* capacity)
+int get_info_from_jededc_id(u_int32_t jedec_id, u_int8_t *vendor, u_int8_t* type, u_int8_t* capacity)
 {
     int rc;
-
-    *vendor   = EXTRACT(jededc_id, 0, 8);
+    *vendor   = EXTRACT(jedec_id, JEDEC_VENDOR_ID_BITOFF, JEDEC_VENDOR_ID_BITLEN);
     if (*vendor == FV_ATMEL) {
-        rc = get_flash_info_for_atmel(jededc_id, type, capacity); CHECK_RC(rc);
+        rc = get_flash_info_for_atmel(jedec_id, type, capacity); CHECK_RC(rc);
     } else {
-        *type     = EXTRACT(jededc_id, 8, 8);
-        *capacity = EXTRACT(jededc_id, 16, 8);
+        *type     = EXTRACT(jedec_id, JEDEC_TYPE_BITOFF, JEDEC_TYPE_BITLEN);
+        *capacity = EXTRACT(jedec_id, JEDEC_CAPACITY_BITOFF, JEDEC_CAPACITY_BITLEN);
     }
 
     return MFE_OK;
@@ -1196,33 +1317,36 @@ int cntx_spi_get_type(mflash* mfl, u_int8_t op_type, u_int8_t *vendor, u_int8_t*
     u_int32_t flash_data = 0;
     int rc;
 
-    rc = cntx_int_spi_get_status_data(mfl, op_type, &flash_data, 3); CHECK_RC(rc);
-    // We should swap the word we get from the gateway because it's inverted
-    flash_data = SWAPL(flash_data);
-    // printf("-D- jedec_id = %#x\n", flash_data);
+    rc = cntx_int_spi_get_status_data(mfl, op_type, &flash_data, 4); CHECK_RC(rc);
+    //printf("-D- jedec_info = %#x\n", flash_data);
     // Get type and some other info from jededc_id
     get_info_from_jededc_id(flash_data, vendor, type, capacity);
     // printf("-D- cntx_spi_get_type: vendor = %#x, type = %#x, capacity = %#x\n", *vendor, *type, *capacity);
     return MFE_OK;
 }
-int cntx_spi_write_status_reg(mflash* mfl, u_int32_t status_reg, u_int8_t write_cmd, u_int8_t status_is_double)
+int cntx_spi_write_status_reg(mflash* mfl, u_int32_t status_reg, u_int8_t write_cmd, u_int8_t bytes_num)
 {
     int rc;
     u_int32_t gw_cmd = 0;
-
+    // TODO: adrianc: add support for dynamic writes of power of 2 bytes_num not just 1,2 bytes
     rc = cntx_st_spi_write_enable(mfl); CHECK_RC(rc);
     gw_cmd = MERGE(gw_cmd,        1, HBO_CMD_PHASE,  1);
     gw_cmd = MERGE(gw_cmd,        1, HBO_DATA_PHASE, 1);
 
     gw_cmd = MERGE(gw_cmd, write_cmd, HBO_CMD,        HBS_CMD);
 
-    if (status_is_double) {
-        gw_cmd = MERGE(gw_cmd, 1, HBO_MSIZE,      HBS_MSIZE);
+    if (bytes_num != 1 && bytes_num != 2) {
+        // self check
+        printf("-E- can only write status register of length 1 or 2 not %d\n", bytes_num);
+        return MFE_NOT_SUPPORTED_OPERATION;
     }
-    MWRITE4(HCR_FLASH_DATA, status_reg);
+    // push status reg to upper bytes
+    status_reg = status_reg << ((bytes_num==2) ? 16 : 24);
+    if (bytes_num == 2) {
+        gw_cmd = MERGE(gw_cmd, 1, HBO_MSIZE,      1);
+    }
 
-    return cntx_exec_cmd(mfl, gw_cmd, "Write-Status-Register");
-
+    return cntx_exec_cmd_set(mfl, gw_cmd, &status_reg, 1, NULL, "Write-Status-Register");
 }
 
 
@@ -1272,6 +1396,7 @@ int cntx_init_gpios(mflash* mfl) {
 int spi_get_num_of_flashes(int prev_num_of_flashes)
 {
     char* mflash_env;
+    int num;
 
     if (prev_num_of_flashes != 0) {
         return prev_num_of_flashes;
@@ -1279,7 +1404,10 @@ int spi_get_num_of_flashes(int prev_num_of_flashes)
 
     mflash_env = getenv(MFLASH_ENV);
     if (mflash_env) {
-        return atol(mflash_env);
+        num =  atoi(mflash_env);
+        // make sure the value makes sense
+        num = (num > 16 || num < 0) ? -1 : num;
+        return num;
     }
 
     return -1;
@@ -1291,7 +1419,7 @@ int spi_update_num_of_banks(mflash* mfl, int prev_num_of_flashes)
 
     num_of_banks = spi_get_num_of_flashes(prev_num_of_flashes);
     if (num_of_banks == -1) {
-        if (is_sx(mfl->attr.hw_dev_id)) {
+        if (IS_SX(mfl->attr.hw_dev_id) || IS_SIB(mfl->attr.hw_dev_id) || IS_SEN(mfl->attr.hw_dev_id)) {
             mfl->opts[MFO_NUM_OF_BANKS] = 2;
         } else {
             mfl->opts[MFO_NUM_OF_BANKS] = 1;
@@ -1377,9 +1505,6 @@ int cntx_st_spi_block_read_ex  (mflash* mfl, u_int32_t blk_addr, u_int32_t blk_s
         gw_cmd = MERGE(gw_cmd, SFC_READ        , HBO_CMD,        HBS_CMD);
 
         rc = get_flash_offset(blk_addr, mfl->attr.log2_bank_size, &gw_addr); CHECK_RC(rc);
-        //printf("-D- cntx_st_spi_block_read_ex: write to gateway\n");
-        MWRITE4(HCR_FLASH_ADDR, gw_addr);
-
     }
     //printf("-D- gw_addr = %#x, gw_cmd = %#x, blk_addr = %#x, mfl->attr.log2_bank_size = %#x\n", gw_addr, gw_cmd, blk_addr, mfl->attr.log2_bank_size);
     if (!is_last) {
@@ -1391,14 +1516,14 @@ int cntx_st_spi_block_read_ex  (mflash* mfl, u_int32_t blk_addr, u_int32_t blk_s
     gw_cmd = MERGE(gw_cmd, 1, HBO_DATA_PHASE,        1);
     gw_cmd = MERGE(gw_cmd, log2up(blk_size), BO_MSIZE,       BS_MSIZE);
 
-    rc = cntx_exec_cmd(mfl, gw_cmd, "Read"); CHECK_RC(rc);
+    rc = cntx_exec_cmd_get(mfl, gw_cmd,(u_int32_t*)data, (blk_size >> 2), &gw_addr, "Read"); CHECK_RC(rc);
 
-    //if (mread_by_chunks(mfl->mf, HCR_FLASH_DATA, data, blk_size) != (int)blk_size) {
-    if (mread4_block(mfl->mf, HCR_FLASH_DATA, (u_int32_t*)data, blk_size) != (int)blk_size) {
-        return 2;
+    ////if (mread_by_chunks(mfl->mf, HCR_FLASH_DATA, data, blk_size) != (int)blk_size) {
+    //if (mread4_block(mfl->mf, HCR_FLASH_DATA, (u_int32_t*)data, blk_size) != (int)blk_size) {
+    //    return 2;
         //fprintf(stderr, "-E- Cr read (0x%08x) failed: %s(%d)\n", HCR_FLASH_DATA, strerror(errno), (u_int32_t)errno);
         //exit(2);
-    }
+    //}
 
     for (i = 0; i < blk_size ; i+= 4) {
         *(u_int32_t*)(data + i) = __be32_to_cpu(*(u_int32_t*)(data + i));
@@ -1433,21 +1558,16 @@ int cntx_st_spi_block_read_old  (mflash* mfl, u_int32_t blk_addr, u_int32_t blk_
     gw_cmd = MERGE(gw_cmd, SFC_READ, HBO_CMD,       HBS_CMD);
 
     gw_addr = blk_addr & ONES32(mfl->attr.log2_bank_size);
-    MWRITE4(HCR_FLASH_ADDR, gw_addr);
 
-    rc = cntx_exec_cmd(mfl, gw_cmd, "Read"); CHECK_RC(rc);
+    rc = cntx_exec_cmd_get(mfl, gw_cmd, (u_int32_t*)data, (blk_size >> 2), &gw_addr, "Read"); CHECK_RC(rc);
 
     // Data:
     for (offs = 0 ; offs < blk_size ; offs += 4) {
-        u_int32_t word;
-        MREAD4(HCR_FLASH_DATA + offs, &word);
-        *((u_int32_t*)(data + offs))= __cpu_to_be32(word);
+        *((u_int32_t*)(data + offs))= __cpu_to_be32(*((u_int32_t*)(data + offs)));
     }
 
     return MFE_OK;
 }
-
-
 
 
 int cntx_st_spi_page_write    (mflash* mfl, u_int32_t addr, u_int32_t size, u_int8_t* data) {
@@ -1528,8 +1648,6 @@ int cntx_st_spi_block_write_ex (mflash* mfl, u_int32_t blk_addr, u_int32_t blk_s
         gw_cmd = MERGE(gw_cmd, SFC_PP          , HBO_CMD,        HBS_CMD);
         gw_addr = blk_addr & ONES32(mfl->attr.log2_bank_size);
         //printf("-D- gw_addr = %#x, blk_addr = %#x\n", gw_addr, blk_addr);
-
-        MWRITE4(HCR_FLASH_ADDR, gw_addr);
     }
 
     if (!is_last) {
@@ -1549,13 +1667,7 @@ int cntx_st_spi_block_write_ex (mflash* mfl, u_int32_t blk_addr, u_int32_t blk_s
         //printf("-D- word = %#x, %d\n", word, HBS_CMD);
     }
 
-    if (mwrite4_block(mfl->mf, HCR_FLASH_DATA, buff, blk_size) != (int)blk_size) {
-        return 2;
-        // fprintf(stderr, "-E- Cr chunk write (0x%08x) failed: %s(%d)\n", HCR_FLASH_DATA, strerror(errno), (u_int32_t)errno);
-        // exit(2);
-    }
-
-    rc = cntx_exec_cmd(mfl, gw_cmd, "PP command"); CHECK_RC(rc);
+    rc = cntx_exec_cmd_set(mfl, gw_cmd, buff, (blk_size >> 2), &gw_addr, "PP command"); CHECK_RC(rc);
 
     //
     // Wait for end of write in flash (WriteInProgress = 0):
@@ -1592,16 +1704,14 @@ int cntx_sst_spi_block_write_ex (mflash* mfl, u_int32_t blk_addr, u_int32_t blk_
     gw_cmd = MERGE(gw_cmd, 0x02            , HBO_CMD,        HBS_CMD);
 
     gw_addr = blk_addr & ONES32(mfl->attr.log2_bank_size);
-    MWRITE4(HCR_FLASH_ADDR, gw_addr);
 
     //gw_cmd = MERGE(gw_cmd, 1               , HBO_CS_HOLD,    1);
 
     word = MERGE(word, data[0] , 24 , 8);
 
     //printf("-D- data[0] = %#x, gw_addr = %#x, word = %#x, gw_cmd = %#x\n", data[0], gw_addr, word, gw_cmd);
-    MWRITE4(HCR_FLASH_DATA, word);
 
-    rc = cntx_exec_cmd(mfl, gw_cmd, "PB command"); CHECK_RC(rc);
+    rc = cntx_exec_cmd_set(mfl, gw_cmd, &word, 1, &gw_addr, "PB command"); CHECK_RC(rc);
 
     rc = st_spi_wait_wip(mfl, 0, 0, 50000); CHECK_RC(rc); // Full throttle polling - no cpu optimization for this flash
 
@@ -1629,11 +1739,9 @@ int cntx_st_spi_erase_sect(mflash* mfl, u_int32_t addr) {
 
     gw_addr = addr & ONES32(mfl->attr.log2_bank_size);
 
-    MWRITE4(HCR_FLASH_ADDR, gw_addr);
-
     // printf("-D- cntx_st_spi_erase_sect: addr = %#x, gw_cmd = %#x.\n", addr, gw_cmd);
 
-    rc = cntx_exec_cmd(mfl, gw_cmd, "ES"); CHECK_RC(rc);
+    rc = cntx_exec_cmd_set(mfl, gw_cmd, NULL, 0, &gw_addr, "ES"); CHECK_RC(rc);
 
     // Wait for erase completion
     rc = st_spi_wait_wip(mfl, ERASE_SUBSECTOR_INIT_DELAY, ERASE_SUBSECTOR_RETRY_DELAY, ERASE_SUBSECTOR_RETRIES); CHECK_RC(rc);
@@ -1653,20 +1761,33 @@ f_mf_write get_write_blk_func(int command_set)
 int old_flash_lock(mflash* mfl, int lock_state) {
 
     // Obtain GPIO Semaphore
-    u_int32_t cnt=0;
+    static u_int32_t cnt = 0;
     u_int32_t word;
+
+    // timeout at 5 seconds
+    TIMER_INIT_AND_START();
+
     if (lock_state) {
         do {
             if (++cnt > GPIO_SEM_TRIES) {
+                cnt = 0;
                 //printf("-E- Can not obtain Flash semaphore");
                 return MFE_SEM_LOCKED;
             }
             MREAD4(SEMAP63, &word);
+            if (word) {
+                msleep(1);
+            }
+            TIMER_CHECK(5, 0, cnt = 0; return MFE_SEM_LOCKED);
         } while (word);
     } else {
         MWRITE4(SEMAP63, 0);
+        if (cnt > 1) {
+            // we are not alone...
+            msleep(1);
+        }
+        cnt = 0;
     }
-
     mfl->is_locked = (lock_state != 0);
     return MFE_OK;
 }
@@ -1689,7 +1810,6 @@ int cntx_flash_init(mflash* mfl, flash_params_t* flash_params) {
 
     }
 
-
     //TODO: Enable page_read (slightly better perf)
     //mfl->f_read           = cntx_st_spi_page_read;
     mfl->f_read           = read_chunks;
@@ -1698,19 +1818,12 @@ int cntx_flash_init(mflash* mfl, flash_params_t* flash_params) {
     mfl->f_set_bank       = empty_set_bank;
     mfl->f_get_info       = cntx_get_flash_info;
 
-
-    rc = mfl->f_lock(mfl, 1);
-    if (!mfl->opts[MFO_IGNORE_SEM_LOCK]) {
-        CHECK_RC(rc);
-    } else {
-        mfl->is_locked = 1;
-    }
     //if (is_life_fish) {
     //    rc = cntx_init_gpios(mfl);  CHECK_RC(rc);
     //}
 
-
     mfl->f_spi_status = cntx_st_spi_get_status;
+    mfl->supp_sr_mod = 1;
 
     rc = st_spi_fill_attr(mfl, flash_params);   CHECK_RC(rc);
 
@@ -1740,18 +1853,34 @@ int is4_init_gpios(mflash* mfl) {
 
 int is4_flash_lock(mflash* mfl, int lock_state) {
     // Obtain GPIO Semaphore
-    u_int32_t cnt=0;
+    static u_int32_t cnt = 0;
     u_int32_t word;
+    u_int32_t lock_status = 0;
+
+    // timeout at 5 seconds
+    TIMER_INIT_AND_START();
+
     if (lock_state) {
         do {
             if (++cnt > GPIO_SEM_TRIES) {
+                cnt = 0;
                 //printf("-E- Can not obtain Flash semaphore");
                 return MFE_SEM_LOCKED;
             }
-            MREAD4(HCR_FLASH_CMD , &word);
-        } while (EXTRACT(word, HBO_LOCK, 1));
+            MREAD4(HCR_FLASH_CMD, &word);
+            lock_status = EXTRACT(word, HBO_LOCK, 1);
+            if (lock_status) {
+                msleep(1);
+            }
+            TIMER_CHECK(5, 0, cnt = 0; return MFE_SEM_LOCKED);
+        } while (lock_status);
     } else {
         MWRITE4(HCR_FLASH_CMD, 0);
+        if (cnt > 1) {
+            // we are not alone
+            msleep(1);
+        }
+        cnt = 0;
     }
 
     mfl->is_locked = (lock_state != 0);
@@ -1795,7 +1924,7 @@ int connectib_flash_lock(mflash* mfl, int lock_state)
 #define SX_CS_SUPPORT_ADDR 0xF0420
 
 int sx_init_cs_support(mflash* mfl) {
-    if (is_sx(mfl->attr.hw_dev_id)) {
+    if (IS_SX(mfl->attr.hw_dev_id)) {
         u_int8_t cs_support_mask = 0;
         u_int32_t data;
         if (mfl->opts[MFO_USER_BANKS_NUM] == 0) {
@@ -1854,6 +1983,10 @@ int check_cache_replacement_gaurd(mflash* mfl, u_int8_t *needs_cache_replacement
 int mfl_com_lock(mflash* mfl)
 {
     int rc;
+    // if we already locked the semaphore we dont want to re-lock it
+    if (mfl->is_locked) {
+        return MFE_OK;
+    }
     rc = mfl->f_lock(mfl, 1);
     if (!mfl->opts[MFO_IGNORE_SEM_LOCK]) {
         CHECK_RC(rc);
@@ -1863,7 +1996,15 @@ int mfl_com_lock(mflash* mfl)
     return MFE_OK;
 }
 
-// ConnectX and Shaldag flash interfaces are identical (except lock function)
+int release_semaphore(mflash* mfl, int ignore_writer_lock) {
+    int rc;
+    if (mfl->is_locked && mfl->f_lock && (!mfl->writer_lock || ignore_writer_lock)) {
+        rc = mfl->f_lock(mfl, 0); CHECK_RC(rc);
+    }
+    return MFE_OK;
+}
+
+// ConnectX and Is4 flash interfaces are identical (except lock function)
 // Use same functions
 //
 // TODO: Unify fith ConnectX inif function
@@ -1880,13 +2021,12 @@ int gen4_flash_init_com(mflash* mfl, flash_params_t* flash_params, u_int8_t init
     mfl->f_get_info       = cntx_get_flash_info;
 
 
-    rc = mfl_com_lock(mfl); CHECK_RC(rc);
-
     if (init_cs_support) {
         // Update the chip_select_support according to the banks number of cs.
         rc = sx_init_cs_support(mfl);  CHECK_RC(rc);
     }
     mfl->f_spi_status = cntx_st_spi_get_status;
+    mfl->supp_sr_mod = 1;
 
     rc = st_spi_fill_attr(mfl, flash_params);   CHECK_RC(rc);
 
@@ -1919,7 +2059,7 @@ int sx_flash_init_direct_access(mflash* mfl, flash_params_t* flash_params)
     return gen4_flash_init_com(mfl, flash_params, 1);
 }
 
-int connectib_init_direct_access(mflash* mfl, flash_params_t* flash_params)
+int fifth_gen_init_direct_access(mflash* mfl, flash_params_t* flash_params)
 {
 
     mfl->f_lock           = connectib_flash_lock;
@@ -1977,11 +2117,14 @@ static int update_max_write_size(mflash* mfl)
     	return MFE_BAD_PARAMS;
     }
     max_reg_size = NEAREST_POW2(max_reg_size);
+    // limit maximal write to MAX_WRITE_BUFFER_SIZE
+    max_reg_size = max_reg_size > MAX_WRITE_BUFFER_SIZE ? MAX_WRITE_BUFFER_SIZE : max_reg_size;
     mfl->attr.block_write = max_reg_size;
     mfl->attr.page_write  = max_reg_size;
     return ME_OK;
 }
 
+// access flash via FW using Flash Access Registers (either by INBAND/ICMD/TOOLS_HCR)
 int flash_init_inband_access(mflash* mfl, flash_params_t* flash_params)
 {
     int rc;
@@ -1999,8 +2142,8 @@ int flash_init_inband_access(mflash* mfl, flash_params_t* flash_params)
     mfl->f_read_blk   = sx_block_read;
     mfl->f_spi_status = empty_get_status;
 
-    // Lock the FW semaphore which synchronizes between multiple processes
-    rc = mfl_com_lock(mfl); CHECK_RC(rc);
+    mfl->supp_sr_mod = 0;
+
     // Get the flash attribute
     rc = st_spi_fill_attr(mfl, flash_params);   CHECK_RC(rc);
     update_max_write_size(mfl); CHECK_RC(rc);
@@ -2023,9 +2166,8 @@ int uefi_flash_init(mflash* mfl, flash_params_t* flash_params)
     mfl->f_read_blk   = sx_block_read;
     mfl->f_spi_status = empty_get_status;
 
+    mfl->supp_sr_mod = 0;
 
-    // Lock the FW semaphore which synchronizes between multiple processes
-    rc = mfl_com_lock(mfl); CHECK_RC(rc);
     // Get the flash attribute
 
     rc = st_spi_fill_attr(mfl, flash_params);   CHECK_RC(rc);
@@ -2062,7 +2204,7 @@ int sx_flash_init(mflash* mfl, flash_params_t* flash_params)
     return MFE_OK;
 }
 
-#ifndef MST_UL
+
 int icmd_init(mflash *mfl)
 {
     // Clear  semaphore when asked to by flint or any tool using mflash
@@ -2073,15 +2215,9 @@ int icmd_init(mflash *mfl)
     }
     return MFE_OK;
 }
-#else
 
-int icmd_init(mflash *mfl) {
-	(void)mfl;
-	return MFE_NOT_IMPLEMENTED;
-}
-#endif
 
-int connectib_flash_init(mflash* mfl, flash_params_t* flash_params)
+int fifth_gen_flash_init(mflash* mfl, flash_params_t* flash_params)
 {
     int rc;
     u_int8_t needs_cache_replacement;
@@ -2094,7 +2230,7 @@ int connectib_flash_init(mflash* mfl, flash_params_t* flash_params)
         }
         rc = flash_init_fw_access(mfl, flash_params); CHECK_RC(rc);
     } else {
-        rc = connectib_init_direct_access(mfl, flash_params); CHECK_RC(rc);
+        rc = fifth_gen_init_direct_access(mfl, flash_params); CHECK_RC(rc);
     }
     return MFE_OK;
 }
@@ -2119,6 +2255,9 @@ int     mf_read        (mflash* mfl, u_int32_t addr, u_int32_t len, u_int8_t* da
 
 int     mf_write       (mflash* mfl, u_int32_t addr, u_int32_t len, u_int8_t* data) {
     CHECK_OUT_OF_RANGE(addr, len, mfl->attr.size);
+    // Locking semaphore for the entire existence of the mflash obj for write and erase only.
+    int rc = mfl_com_lock(mfl); CHECK_RC(rc);
+    mfl->writer_lock = 1;
     return mfl->f_write(mfl, addr, len, data);
 }
 
@@ -2126,6 +2265,9 @@ int     mf_erase_sector(mflash* mfl, u_int32_t addr) {
     if (addr >= mfl->attr.size) {
         return MFE_OUT_OF_RANGE;
     }
+    // Locking semaphore for the entire existence of the mflash obj for write and erase only.
+    int rc = mfl_com_lock(mfl); CHECK_RC(rc);
+    mfl->writer_lock = 1;
     return mfl->f_erase_sect(mfl, addr);
 }
 
@@ -2134,50 +2276,59 @@ int mf_open_ignore_lock(mflash* mfl) {
     return mf_open_fw(mfl, NULL, 0);
 }
 
-
-
-
 #define CR_LOCK_HW_ID 0xbad0cafe
-
 
 int get_dev_info(mflash* mfl)
 {
     u_int32_t dev_flags;
     int rc;
     u_int32_t dev_id;
-    // The opt MFO_FW_ACCESS_TYPE_BY_MFILE will be used only when work on SX device
     mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] = ATBM_NO;
     rc = mget_mdevs_flags(mfl->mf, &dev_flags); CHECK_RC(rc);
 
+    // get hw id
+    // Special case for MLNX OS getting dev_id using REG MGIR
     if (dev_flags & MDEVS_MLNX_OS) {
-         // HACK: When we have a mlnxsw device we don't have any access to cr-space so we will assume we work on SX
-         dev_id = SWITCHX_HW_ID;
-         mfl->attr.rev_id    = 0;
-         mfl->attr.hw_dev_id = SWITCHX_HW_ID;
+        reg_access_status_t rc;
+        struct register_access_sib_mgir mgir;
+        memset(&mgir, 0, sizeof(mgir));
+        rc = reg_access_mgir(mfl->mf, REG_ACCESS_METHOD_GET, &mgir);
+        //printf("-D- RC[%s] -- REVID: %d -- DEVID: %d hw_dev_id: %d\n", m_err2str(rc), mgir.HWInfo.REVID, mgir.HWInfo.DEVID, mgir.HWInfo.hw_dev_id);
+        if (rc) {
+            dev_id = SWITCHX_HW_ID;
+            mfl->attr.rev_id    = 0;
+            mfl->attr.hw_dev_id = SWITCHX_HW_ID;
+        } else {
+            dev_id = mgir.HWInfo.hw_dev_id;
+            if (dev_id == 0) {
+                dev_id = SWITCHX_HW_ID;
+                mfl->attr.hw_dev_id = SWITCHX_HW_ID;
+                mfl->attr.rev_id = mgir.HWInfo.REVID & 0xf;
+            } else {
+                mfl->attr.hw_dev_id = dev_id;
+                mfl->attr.rev_id = 0; //WA: MGIR should have also hw_rev_id and then we can use it.
+            }
+        }
+    } else {
+        MREAD4(HW_DEV_ID, &dev_id);
+        if (dev_id == CR_LOCK_HW_ID) {
+            return MFE_LOCKED_CRSPACE;
+        }
+        mfl->attr.rev_id    = (dev_id & 0xff0000) >> 16;
+        mfl->attr.hw_dev_id = dev_id & 0xffff;
+    }
+
+    if (dev_flags & MDEVS_MLNX_OS) {
          mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] = ATBM_MLNXOS_CMDIF;
-     } else {
-         MREAD4(HW_DEV_ID, &dev_id);
-         if (dev_id == CR_LOCK_HW_ID) {
-             return MFE_LOCKED_CRSPACE;
-         }
-         mfl->attr.rev_id    = (dev_id & 0xff0000) >> 16;
-         mfl->attr.hw_dev_id = dev_id & 0xffff;
-
-         if (dev_flags & MDEVS_IB) {
+     } else if (dev_flags & MDEVS_IB){
              mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] = ATBM_INBAND;
-         } else {
-             if (has_icmd_if(mfl->attr.hw_dev_id)) {
-                 if (mfl->opts[MFO_IGNORE_CASHE_REP_GUARD] == 0) {
-                    #ifdef MST_UL
-                         mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] = ATBM_INBAND;
-                    #else
-                         mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] = ATBM_ICMD;
-                    #endif
-                 }
-             }
-         }
+     } else { // not mlnxOS or IB device - check HW ID to determine Access type
+        if (HAS_ICMD_IF(mfl->attr.hw_dev_id)){
+            if (mfl->opts[MFO_IGNORE_CASHE_REP_GUARD] == 0) {
+                mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] = ATBM_ICMD;
+            }
+        }
      }
-
     return MFE_OK;
 
 }
@@ -2189,7 +2340,7 @@ int mf_open_fw(mflash* mfl, flash_params_t* flash_params, int num_of_banks)
     if (!mfl) {
         return MFE_BAD_PARAMS;
     }
-    mfl->curr_bank = -1;
+    rc = set_bank_int(mfl, -1); CHECK_RC(rc);
     if (mfl->access_type == MFAT_MFILE ) {
         rc = get_dev_info(mfl); CHECK_RC(rc);
 
@@ -2198,23 +2349,22 @@ int mf_open_fw(mflash* mfl, flash_params_t* flash_params, int num_of_banks)
 
         if (mfl->attr.hw_dev_id == 23108 || mfl->attr.hw_dev_id == 25208 || mfl->attr.hw_dev_id == 24204 || mfl->attr.hw_dev_id == 25204) {
             rc = MFE_OLD_DEVICE_TYPE;
-        } else if (is_connectx_family(mfl->attr.hw_dev_id)) {
+        } else if (IS_CONNECTX_4TH_GEN_FAMILY(mfl->attr.hw_dev_id)) {
             rc = cntx_flash_init(mfl, flash_params);
-        } else if (is_is4_family(mfl->attr.hw_dev_id)) {
+        } else if (IS_IS4_FAMILY(mfl->attr.hw_dev_id)) {
             rc = is4_flash_init(mfl, flash_params);
-        } else if (is_sx(mfl->attr.hw_dev_id)) {
+        } else if (IS_SX(mfl->attr.hw_dev_id)) {
             rc = sx_flash_init(mfl, flash_params);
-        } else if (has_icmd_if(mfl->attr.hw_dev_id)) {
-            rc = connectib_flash_init(mfl, flash_params);
+        } else if (HAS_ICMD_IF(mfl->attr.hw_dev_id)) {
+            rc = fifth_gen_flash_init(mfl, flash_params);
         } else if (mfl->attr.hw_dev_id == 0xffff) {
-            printf("-E- Read a corrupted device id (0x%x). Probably HW/PCI access problem\n", mfl->attr.hw_dev_id);
-            rc = MFE_CR_ERROR;
+            rc = MFE_HW_DEVID_ERROR;
         } else {
             rc = MFE_UNSUPPORTED_DEVICE;
         }
         CHECK_RC(rc);
     } else if (mfl->access_type == MFAT_UEFI) {
-        mfl->opts[MFO_NUM_OF_BANKS] = 1; // We have only one flash in Golan and ConnectX-3 - Need to specify it better!
+        mfl->opts[MFO_NUM_OF_BANKS] = 1; // We have only one flash in ConnectIB and ConnectX-3 - Need to specify it better!
         rc = uefi_flash_init(mfl, flash_params); CHECK_RC(rc);
     } else {
         return MFE_UNKOWN_ACCESS_TYPE;
@@ -2257,7 +2407,6 @@ int     mf_opend       (mflash** pmfl, struct mfile_t* mf, int num_of_banks, fla
 }
 
 
-
 int     mf_open_uefi(mflash** pmfl, uefi_Dev_t *uefi_dev, f_fw_cmd fw_cmd_func)
 {
 
@@ -2291,17 +2440,9 @@ int     mf_open        (mflash** pmfl, const char* dev, int num_of_banks, flash_
     return MFE_OK;
 }
 
-int release_semaphore(mflash* mfl) {
-    int rc;
-    if (mfl->is_locked && mfl->f_lock) {
-        rc = mfl->f_lock(mfl, 0); CHECK_RC(rc);
-    }
-    return MFE_OK;
-}
-
-int     mf_close       (mflash* mfl) {
+void     mf_close       (mflash* mfl) {
     if (!mfl) {
-        return MFE_BAD_PARAMS;
+        return;
     }
 
     if (mfl->f_reset) {
@@ -2309,17 +2450,17 @@ int     mf_close       (mflash* mfl) {
     }
 
     if (mfl->f_set_bank) {
-        set_bank(mfl, 0);
+        (void)set_bank(mfl, 0);
     }
-
-    release_semaphore(mfl);
+    // we release if we have writer_lock or not doesnt matter on close ...
+    release_semaphore(mfl, 1);
 
     if (mfl->mf && (mfl)->opts[MFO_CLOSE_MF_ON_EXIT]) {
         mclose(mfl->mf);
     }
 
     free(mfl);
-    return MFE_OK;
+    return;
 }
 
 
@@ -2329,6 +2470,9 @@ int     mf_get_attr    (mflash* mfl, flash_attr* attr) {
 }
 
 int     mf_sw_reset     (mflash* mfl) {
+    if (!SUPPORTS_SW_RESET(mfl->attr.hw_dev_id)) {
+        return MFE_UNSUPPORTED_DEVICE;
+    }
     if (msw_reset(mfl->mf)) {
         if (errno == EPERM) {
             return MFE_CMD_SUPPORTED_INBAND_ONLY;
@@ -2344,71 +2488,136 @@ int     mf_sw_reset     (mflash* mfl) {
 }
 
 
-
 const char*   mf_err2str (int err_code) {
-    static const char* mf_err_str[] = {
-    "MFE_OK",
-    "MFE_GENERAL_ERROR",
-    "MFE_BAD_PARAMS",
-    "MFE_CR_ERROR",
-    "MFE_INVAL",
-    "MFE_NOT_IMPLEMENTED",
-    "MFE_UNSUPPORTED_FLASH_TOPOLOGY",
-    "MFE_UNSUPPORTED_FLASH_TYPE",
-    "MFE_CFI_FAILED",
-    "MFE_TIMEOUT",
-    "MFE_ERASE_TIMEOUT",
-    "MFE_WRITE_TIMEOUT",
-    "MFE_ERASE_ERROR",
-    "MFE_WRITE_ERROR",
-    "MFE_BAD_ALIGN",
-    "MFE_SEM_LOCKED",
-    "MFE_VERIFY_ERROR",
-    "MFE_NOMEM",
-    "MFE_OUT_OF_RANGE",
-    "MFE_CMD_SUPPORTED_INBAND_ONLY",
-    "MFE_NO_FLASH_DETECTED",
-    "MFE_HW_ACCESS_DISABLED",
-    "MFE_CMDIF_BAD_STATUS_ERR",
-    "MFE_CMDIF_TIMEOUT_ERR",
-    "MFE_CMDIF_GO_BIT_BUSY",
-    "The given key is incorrect",
-    "MFE_UNKNOWN_REG",
-    "MFE_DIRECT_FW_ACCESS_DISABLED",
-    "MFE_MANAGED_SWITCH_NOT_SUPPORTED",
-    "MFE_NOT_SUPPORTED_OPERATION",
-    "MFE_FLASH_NOT_EXIST",
-    "MFE_MISMATCH_PARAM",
-    "MFE_EXCEED_SUBSECTORS_MAX_NUM",
-    "MFE_EXCEED_SECTORS_MAX_NUM",
-    "MFE_SECTORS_NUM_NOT_POWER_OF_TWO",
-    "MFE_UNKOWN_ACCESS_TYPE",
-    "MFE_UNSUPPORTED_DEVICE",
-    "MFE_OLD_DEVICE_TYPE",
-    "MFE_ICMD_INIT_FAILED",
-    "MFE_ICMD_NOT_SUPPORTED",
-    "Secure host mode is not enabled in this FW.",
-    "MFE_MAD_SEND_ERR",
-    "MFE_ICMD_BAD_PARAM",
-    "MFE_ICMD_INVALID_OPCODE",
-    "MFE_ICMD_INVALID_CMD",
-    "MFE_ICMD_OPERATIONAL_ERROR",
-    "MFE_REG_ACCESS_BAD_METHOD",
-    "MFE_REG_ACCESS_NOT_SUPPORTED",
-    "MFE_REG_ACCESS_DEV_BUSY",
-    "MFE_REG_ACCESS_VER_NOT_SUPP",
-    "MFE_REG_ACCESS_UNKNOWN_TLV",
-    "MFE_REG_ACCESS_REG_NOT_SUPP",
-    "MFE_REG_ACCESS_CLASS_NOT_SUPP",
-    "MFE_REG_ACCESS_METHOD_NOT_SUPP",
-    "MFE_REG_ACCESS_BAD_PARAM",
-    "MFE_REG_ACCESS_RESOURCE_NOT_AVAILABLE",
-    "MFE_REG_ACCESS_MSG_RECPT_ACK",
-    "MFE_REG_ACCESS_UNKNOWN_ERR",
-    "MFE_REG_ACCESS_SIZE_EXCCEEDS_LIMIT",
-    };
 
-    return err_code < (int)ARRSIZE(mf_err_str) ? mf_err_str[err_code] : NULL;
+    switch (err_code) {
+    case MFE_OK:
+        return "MFE_OK";
+    case MFE_ERROR :
+        return "MFE_GENERAL_ERROR";
+    case MFE_BAD_PARAMS:
+        return "MFE_BAD_PARAMS";
+    case MFE_CR_ERROR :
+        return "MFE_CR_ERROR";
+    case MFE_HW_DEVID_ERROR:
+        return "Read a corrupted device id (0xffff). Probably HW/PCI access problem.";
+    case MFE_INVAL:
+        return "MFE_INVAL";
+    case MFE_NOT_IMPLEMENTED:
+        return "MFE_NOT_IMPLEMENTED";
+    case MFE_UNSUPPORTED_FLASH_TOPOLOGY:
+        return "MFE_UNSUPPORTED_FLASH_TOPOLOGY";
+    case MFE_UNSUPPORTED_FLASH_TYPE:
+        return "MFE_UNSUPPORTED_FLASH_TYPE";
+    case MFE_CFI_FAILED:
+        return "MFE_CFI_FAILED";
+    case MFE_TIMEOUT:
+        return "MFE_TIMEOUT";
+    case MFE_ERASE_TIMEOUT:
+        return "MFE_ERASE_TIMEOUT";
+    case MFE_WRITE_TIMEOUT:
+        return "MFE_WRITE_TIMEOUT";
+    case MFE_ERASE_ERROR:
+        return "MFE_ERASE_ERROR";
+    case MFE_WRITE_ERROR:
+        return "MFE_WRITE_ERROR";
+    case MFE_BAD_ALIGN:
+        return "MFE_BAD_ALIGN";
+    case MFE_SEM_LOCKED:
+        return "MFE_SEM_LOCKED";
+    case MFE_VERIFY_ERROR:
+        return "MFE_VERIFY_ERROR";
+    case MFE_NOMEM:
+        return "MFE_NOMEM";
+    case MFE_OUT_OF_RANGE:
+        return "MFE_OUT_OF_RANGE";
+    case MFE_CMD_SUPPORTED_INBAND_ONLY:
+        return "Command supported over IB interface only.";
+    case MFE_NO_FLASH_DETECTED:
+        return "MFE_NO_FLASH_DETECTED";
+    case MFE_LOCKED_CRSPACE:
+        return "MFE_HW_ACCESS_DISABLED";
+    case MFE_CMDIF_BAD_STATUS_ERR:
+        return "MFE_CMDIF_BAD_STATUS_ERR";
+    case MFE_CMDIF_TIMEOUT_ERR:
+        return "MFE_CMDIF_TIMEOUT_ERR";
+    case MFE_CMDIF_GO_BIT_BUSY:
+        return "MFE_CMDIF_GO_BIT_BUSY";
+    case MFE_MISMATCH_KEY:
+        return "The given key is incorrect";
+    case MFE_UNKNOWN_REG:
+        return "MFE_UNKNOWN_REG";
+    case MFE_DIRECT_FW_ACCESS_DISABLED:
+        return "MFE_DIRECT_FW_ACCESS_DISABLED";
+    case MFE_MANAGED_SWITCH_NOT_SUPPORTED:
+        return "MFE_MANAGED_SWITCH_NOT_SUPPORTED";
+    case MFE_NOT_SUPPORTED_OPERATION:
+        return "MFE_NOT_SUPPORTED_OPERATION";
+    case MFE_FLASH_NOT_EXIST:
+        return "MFE_FLASH_NOT_EXIST";
+    case MFE_MISMATCH_PARAM:
+        return "MFE_MISMATCH_PARAM";
+    case MFE_EXCEED_SUBSECTORS_MAX_NUM:
+        return "MFE_EXCEED_SUBSECTORS_MAX_NUM";
+    case MFE_EXCEED_SECTORS_MAX_NUM:
+        return "MFE_EXCEED_SECTORS_MAX_NUM";
+    case MFE_SECTORS_NUM_NOT_POWER_OF_TWO:
+        return "MFE_SECTORS_NUM_NOT_POWER_OF_TWO";
+    case MFE_UNKOWN_ACCESS_TYPE:
+        return "MFE_UNKOWN_ACCESS_TYPE";
+    case MFE_UNSUPPORTED_DEVICE:
+        return "MFE_UNSUPPORTED_DEVICE";
+    case MFE_OLD_DEVICE_TYPE:
+        return "MFE_OLD_DEVICE_TYPE";
+    case MFE_ICMD_INIT_FAILED:
+        return "MFE_ICMD_INIT_FAILED";
+    case MFE_ICMD_NOT_SUPPORTED:
+        return "MFE_ICMD_NOT_SUPPORTED";
+    case MFE_HW_ACCESS_NOT_SUPP:
+        return "Secure host mode is not enabled in this FW.";
+    case MFE_MAD_SEND_ERR:
+        return "MFE_MAD_SEND_ERR";
+    case MFE_ICMD_BAD_PARAM:
+        return "MFE_ICMD_BAD_PARAM";
+    case MFE_ICMD_INVALID_OPCODE:
+        return "MFE_ICMD_INVALID_OPCODE";
+    case MFE_ICMD_INVALID_CMD:
+        return "MFE_ICMD_INVALID_CMD";
+    case MFE_ICMD_OPERATIONAL_ERROR:
+        return "MFE_ICMD_OPERATIONAL_ERROR";
+    case MFE_REG_ACCESS_BAD_METHOD:
+        return "MFE_REG_ACCESS_BAD_METHOD";
+    case MFE_REG_ACCESS_NOT_SUPPORTED:
+        return "MFE_REG_ACCESS_NOT_SUPPORTED";
+    case MFE_REG_ACCESS_DEV_BUSY:
+        return "MFE_REG_ACCESS_DEV_BUSY";
+    case MFE_REG_ACCESS_VER_NOT_SUPP:
+        return "MFE_REG_ACCESS_VER_NOT_SUPP";
+    case MFE_REG_ACCESS_UNKNOWN_TLV:
+        return "MFE_REG_ACCESS_UNKNOWN_TLV";
+    case MFE_REG_ACCESS_REG_NOT_SUPP:
+        return "MFE_REG_ACCESS_REG_NOT_SUPP";
+    case MFE_REG_ACCESS_CLASS_NOT_SUPP:
+        return "MFE_REG_ACCESS_CLASS_NOT_SUPP";
+    case MFE_REG_ACCESS_METHOD_NOT_SUPP:
+        return "MFE_REG_ACCESS_METHOD_NOT_SUPP";
+    case MFE_REG_ACCESS_BAD_PARAM:
+        return "MFE_REG_ACCESS_BAD_PARAM";
+    case MFE_REG_ACCESS_RES_NOT_AVLBL:
+        return "MFE_REG_ACCESS_RESOURCE_NOT_AVAILABLE";
+    case MFE_REG_ACCESS_MSG_RECPT_ACK:
+        return "MFE_REG_ACCESS_MSG_RECPT_ACK";
+    case MFE_REG_ACCESS_UNKNOWN_ERR:
+        return "MFE_REG_ACCESS_UNKNOWN_ERR";
+    case MFE_REG_ACCESS_SIZE_EXCCEEDS_LIMIT:
+        return "MFE_REG_ACCESS_SIZE_EXCCEEDS_LIMIT";
+    case MFE_PCICONF:
+        return "Access to device should be through configuration cycles.";
+    case MFE_ILLEGAL_BANK_NUM:
+        return "MFE_ILLEGAL_BANK_NUM";
+    default:
+        return "Unknown error";
+    }
 }
 
 int     mf_set_opt     (mflash* mfl, MfOpt opt, int  val) {
@@ -2443,23 +2652,27 @@ int     mf_cr_write    (mflash* mfl, u_int32_t cr_addr, u_int32_t  data) {
 
 int	mf_update_boot_addr(mflash* mfl, u_int32_t boot_addr)
 {
-	if (mfl->access_type != MFAT_UEFI && mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] != ATBM_MLNXOS_CMDIF) {
-		// the boot addr will be updated directly via cr-space
-		return mf_cr_write(mfl, BOOT_CR_SPACE_ADDR, ((boot_addr << 8) | 0x06));
-	}
-	// the boot addr will be updated via reg
+    if (mfl->access_type != MFAT_UEFI && mfl->opts[MFO_FW_ACCESS_TYPE_BY_MFILE] != ATBM_MLNXOS_CMDIF) {
+        // the boot addr will be updated directly via cr-space
+        return mf_cr_write(mfl, BOOT_CR_SPACE_ADDR, ((boot_addr << 8) | 0x06));
+    }
+    // the boot addr will be updated via reg
     return mf_update_boot_addr_by_type(mfl, boot_addr);
 }
 
-int     mf_read_modify_status_winbond (mflash *mfl, u_int8_t bank_num, u_int8_t first_byte, u_int8_t param, u_int8_t offset, u_int8_t size)
+int     mf_read_modify_status_winbond (mflash *mfl, u_int8_t bank_num, u_int8_t is_first_status_reg, u_int8_t param, u_int8_t offset, u_int8_t size)
 {
-    u_int8_t status1 = 0, status2 = 0, use_rdsr2 = 0, is_double = 0;
+    u_int8_t status1 = 0, status2 = 0, use_rdsr2 = 0;
     u_int32_t status = 0;
+    u_int8_t bytes_to_write = 1;
     int rc;
 
-
-    mfl->curr_bank = bank_num;
+    rc = set_bank_int(mfl, bank_num); CHECK_RC(rc);
     if ( mfl->attr.vendor == FV_WINBOND &&  mfl->attr.type == FMT_WINBOND) {
+        /*
+         * if we have 2 status registers, winbond are allowing us to write both of them
+         * in a single command WRSR  status_reg1 located in MSB, status_reg2 after status_reg1
+         */
         use_rdsr2 = 1;
     }
 
@@ -2467,15 +2680,19 @@ int     mf_read_modify_status_winbond (mflash *mfl, u_int8_t bank_num, u_int8_t 
     rc = mfl->f_spi_status(mfl, SFC_RDSR, &status1); CHECK_RC(rc);
     if (use_rdsr2) {
         rc = mfl->f_spi_status(mfl, SFC_RDSR2, &status2); CHECK_RC(rc);
-        status = MERGE(0, status2, 16, 8);
-        is_double = 1;
+        status = MERGE(0, status2, 0, 8);
+        bytes_to_write = 2;
     }
     // Prepare the read status word
-    status = MERGE(status, status1, 24, 8);
+    status = MERGE(status, status1, 8, 8);
     // Modify the status according to the function arguments
-    status = MERGE(status, param, 16 + offset + first_byte * 8 , size);
+    status = MERGE(status, param, offset + is_first_status_reg * 8 , size);
+    // fix status register in case we dont need to write status register 2
+    if (bytes_to_write == 1) {
+        status = status >> 8;
+    }
     // Write register status
-    rc = cntx_spi_write_status_reg(mfl, status, SFC_WRSR, is_double); CHECK_RC(rc);
+    rc = cntx_spi_write_status_reg(mfl, status, SFC_WRSR, bytes_to_write); CHECK_RC(rc);
     return MFE_OK;
 }
 #define QUAD_EN_OFFSET 1
@@ -2483,19 +2700,15 @@ int     mf_read_modify_status_winbond (mflash *mfl, u_int8_t bank_num, u_int8_t 
 #define DUMMY_CYCLES_OFFSET_ST 12
 
 int mf_read_modify_status_new(mflash *mfl, u_int8_t bank_num, u_int8_t read_cmd, u_int8_t write_cmd, u_int8_t val,
-                              u_int8_t offset, u_int8_t size, u_int8_t is_double)
+                              u_int8_t offset, u_int8_t size, u_int8_t bytes_num)
 {
     int rc;
     u_int32_t status = 0;
 
-    mfl->curr_bank = bank_num;
-    rc = cntx_int_spi_get_status_data(mfl, read_cmd, &status, is_double); CHECK_RC(rc);
-    // status comes in be32 format (byte0 = MSB) so we switch
-    status = __be32_to_cpu(status);
+    rc = set_bank_int(mfl, bank_num); CHECK_RC(rc);
+    rc = cntx_int_spi_get_status_data(mfl, read_cmd, &status, bytes_num); CHECK_RC(rc);
     status = MERGE(status, val, offset, size);
-    // and switch back
-    status = __be32_to_cpu(status);
-    rc = cntx_spi_write_status_reg(mfl, status, write_cmd, is_double); CHECK_RC(rc);
+    rc = cntx_spi_write_status_reg(mfl, status, write_cmd, bytes_num); CHECK_RC(rc);
     return MFE_OK;
 }
 
@@ -2504,16 +2717,11 @@ int mf_get_param_int(mflash* mfl, u_int8_t *param_p, u_int8_t cmd, u_int8_t offs
 {
     u_int32_t status = 0, is_first = 1, bank;
     int rc;
-
     for (bank = 0; bank < mfl->attr.banks_num; bank++ ) {
         u_int8_t curr_val;
-        mfl->curr_bank = bank;
-
+        rc = set_bank_int(mfl, bank); CHECK_RC(rc);
         rc = cntx_int_spi_get_status_data(mfl, cmd, &status, bytes_num); CHECK_RC(rc);
-        //if (mfl->attr.vendor == FV_ST) {
-        	//value is a word located in the higher bytes and is in be_32 format so we "fix" the bytes
-        	status = __be32_to_cpu(status);
-        //}
+
         curr_val = EXTRACT(status, offset, bit_size);
         if (bit_size == 1) {
         	curr_val = (curr_val == enabled_val);
@@ -2537,11 +2745,11 @@ int     mf_set_dummy_cycles (mflash *mfl, u_int8_t num_of_cycles)
         return MFE_BAD_PARAMS;
 	}
     int bank, rc;
-    if (!mfl->attr.dummy_cycles_support) {
+    if (!(mfl->attr.dummy_cycles_support && mfl->supp_sr_mod)) {
         return MFE_NOT_SUPPORTED_OPERATION;
     }
     for (bank = 0; bank < mfl->attr.banks_num; bank++) {
-        rc =  mf_read_modify_status_new(mfl, bank, SFC_RDNVR, SFC_WRNVR, num_of_cycles, DUMMY_CYCLES_OFFSET_ST, 4, 1); CHECK_RC(rc);
+        rc =  mf_read_modify_status_new(mfl, bank, SFC_RDNVR, SFC_WRNVR, num_of_cycles, DUMMY_CYCLES_OFFSET_ST, 4, 2); CHECK_RC(rc);
     }
     return MFE_OK;
 }
@@ -2551,7 +2759,7 @@ int mf_get_dummy_cycles(mflash* mfl, u_int8_t *dummy_cycles_p)
 	if (!mfl || !dummy_cycles_p) {
         return MFE_BAD_PARAMS;
 	}
-    if (!mfl->attr.dummy_cycles_support) {
+    if (!(mfl->attr.dummy_cycles_support && mfl->supp_sr_mod)) {
         return MFE_NOT_SUPPORTED_OPERATION;
     }
     return  mf_get_param_int(mfl, dummy_cycles_p, SFC_RDNVR, DUMMY_CYCLES_OFFSET_ST, 4, 2, 0);
@@ -2566,14 +2774,14 @@ int     mf_set_quad_en (mflash *mfl, u_int8_t quad_en)
 		return MFE_BAD_PARAMS;
 	}
     int bank, rc;
-    if (!mfl->attr.quad_en_support) {
+    if (!(mfl->attr.quad_en_support && mfl->supp_sr_mod)) {
         return MFE_NOT_SUPPORTED_OPERATION;
     }
     for (bank = 0; bank < mfl->attr.banks_num; bank++) {
         if (mfl->attr.vendor == FV_WINBOND) {
             rc = mf_read_modify_status_winbond(mfl, bank, 0, quad_en, QUAD_EN_OFFSET, 1); CHECK_RC(rc);
         } else if (mfl->attr.vendor == FV_ST) {
-            rc = mf_read_modify_status_new(mfl, bank, SFC_RDNVR, SFC_WRNVR, !quad_en, QUAD_EN_OFFSET_ST, 1, 1); CHECK_RC(rc);
+            rc = mf_read_modify_status_new(mfl, bank, SFC_RDNVR, SFC_WRNVR, !quad_en, QUAD_EN_OFFSET_ST, 1, 2); CHECK_RC(rc);
         }
     }
     return MFE_OK;
@@ -2584,7 +2792,7 @@ int mf_get_quad_en(mflash* mfl, u_int8_t *quad_en_p)
 	if (!mfl || !quad_en_p) {
 		return MFE_BAD_PARAMS;
 	}
-    if (!mfl->attr.quad_en_support) {
+    if (!(mfl->attr.quad_en_support && mfl->supp_sr_mod)) {
         return MFE_NOT_SUPPORTED_OPERATION;
     }
 
@@ -2662,7 +2870,7 @@ int     mf_get_write_protect(mflash *mfl, u_int8_t bank_num, write_protect_info_
     u_int8_t status;
 
     WRITE_PROTECT_CHECKS(mfl, bank_num);
-    mfl->curr_bank = bank_num;
+    rc = set_bank_int(mfl, bank_num); CHECK_RC(rc);
     rc = mfl->f_spi_status(mfl, SFC_RDSR, &status); CHECK_RC(rc);
     protect_info->is_bottom = EXTRACT(status, REG1_TB_OFFSET, 1);
 
@@ -2677,154 +2885,11 @@ int     mf_get_write_protect(mflash *mfl, u_int8_t bank_num, write_protect_info_
     return MFE_OK;
 }
 
-/**********************************************************************************************/
-/// THIS PART SHOULD BE MOVED TO A COMMON PLACE - CMDIF LIB
-
-#define TOOLS_HCR_ADDR         0x80780
-#define IF_CMD_UNLOCK_CR_SPACE 0x60
-#define CMD_IF_SIZE            28
-#define CMD_IF_WAIT_GO         2000
-
-typedef struct mf_cmd_if {
-    u_int64_t in_param;
-    u_int64_t out_param;
-    u_int32_t input_modifier;
-    u_int16_t token;
-    u_int16_t opcode;
-    u_int8_t  opcode_modifier;
-    u_int8_t  t;
-    u_int8_t  e;
-    u_int8_t  go;
-    u_int8_t  status;
-} mf_cmd_if_t;
-
-static void cmd_if_pack(mf_cmd_if_t* cmd, u_int32_t* buf) {
-    memset((char*)buf, 0, CMD_IF_SIZE);
-    buf[0] = EXTRACT64(cmd->in_param, 32, 32);
-    buf[1] = EXTRACT64(cmd->in_param,  0, 32);
-    buf[2] = cmd->input_modifier;
-    // out h
-    // out l
-    buf[5] = MERGE(buf[5], cmd->token,               16, 16);
-    buf[6] = MERGE(buf[6], cmd->opcode,               0, 12);
-    buf[6] = MERGE(buf[6], cmd->opcode_modifier,     12,  4);
-    buf[6] = MERGE(buf[6], cmd->e,                   22,  1);
-}
-
-static void cmd_if_unpack(mf_cmd_if_t* cmd, u_int32_t* buf) {
-    memset(cmd, 0, sizeof(mf_cmd_if_t));
-
-    cmd->in_param       = MERGE64(cmd->in_param, buf[0], 32, 32);
-    cmd->in_param       = MERGE64(cmd->in_param, buf[1],  0, 32);
-    cmd->input_modifier = buf[2];
-    cmd->out_param      = MERGE64(cmd->out_param, buf[3], 32, 32);
-    cmd->out_param      = MERGE64(cmd->out_param, buf[4],  0, 32);
-    cmd->opcode         = EXTRACT(buf[6], 0, 12);
-    cmd->opcode_modifier= EXTRACT(buf[6], 12, 4);
-
-    cmd->status         = EXTRACT(buf[6], 24, 8);
-}
-
-static int cmd_if_wait_go(mflash* mfl, int* retries)
-{
-    int i;
-    u_int8_t go_bit;
-
-    for (i = 0; i < CMD_IF_WAIT_GO; i++) {
-        u_int32_t word;
-        MREAD4(TOOLS_HCR_ADDR + CMD_IF_SIZE - 4, &word);
-        /*
-        if (mread4( mf, TOOLS_HCR_ADDR + CMD_IF_SIZE - 4, &word) != 4) {
-            return 3;
-        }
-        */
-        go_bit = EXTRACT(word, 23, 1);
-        if (!go_bit) {
-            if (retries) {
-                *retries = i;
-            }
-            return 0;
-        }
-    }
-    return MFE_CMDIF_GO_BIT_BUSY;
-}
-
-static int cmd_if_send(mflash* mfl, mf_cmd_if_t* cmd)
-{
-
-    u_int32_t raw_cmd[CMD_IF_SIZE/4];
-    int act_retries;
-    int rc;
-    u_int32_t hcr_header;
-
-    // Check if the go BIT is ready
-    rc = cmd_if_wait_go(mfl, NULL);
-    if (rc) {
-        //printf("cmd_if_send: GO bit set before command issued (rc=%d)\n", rc);
-        return MFE_CMDIF_GO_BIT_BUSY;
-    }
-    // Prepare the date of the command we're gonna execute
-    cmd_if_pack(cmd, raw_cmd);
-
-    if (mwrite4_block(mfl->mf, TOOLS_HCR_ADDR, raw_cmd, CMD_IF_SIZE) != CMD_IF_SIZE) {
-        return MFE_CR_ERROR;
-    }
-
-    raw_cmd[6] = MERGE(raw_cmd[6],      1,                   23,  1); // go
-    MWRITE4(TOOLS_HCR_ADDR + 24, raw_cmd[6]);
-
-    // Check if the command is supported at all
-    MREAD4(TOOLS_HCR_ADDR + 24, &hcr_header);
-    if (!hcr_header) {
-        return MFE_HW_ACCESS_NOT_SUPP;
-    }
-
-    rc = cmd_if_wait_go(mfl, &act_retries);
-    if (rc) {
-        return MFE_CMDIF_TIMEOUT_ERR;
-    }
-
-    if (mread4_block(mfl->mf, TOOLS_HCR_ADDR, raw_cmd, CMD_IF_SIZE) != CMD_IF_SIZE) {
-        return MFE_CR_ERROR;
-    }
-
-    cmd_if_unpack(cmd, raw_cmd);
-
-    if (cmd->status) {
-        //printf("-E- CMD IF Bad status. Op: 0x%x Status: 0x%x\n", cmd->opcode, cmd->status);
-        return MFE_CMDIF_BAD_STATUS_ERR; // TODO - Special return code here - needs a specific attention
-    }
-    return MFE_OK;
-}
-
-#define MISMATCH_KEY_RC 0x3
-int cmdif_hw_access_int(mflash* mfl, u_int64_t key, u_int8_t opcode_modifier)
-{
-    mf_cmd_if_t cmd;
-    int rc;
-
-    my_memset(&cmd, 0, sizeof(cmd));
-
-    // Prepare CMD IF
-    cmd.opcode          = IF_CMD_UNLOCK_CR_SPACE;
-    // Determine if we want to lock (1) or unlock (0)
-    cmd.opcode_modifier = opcode_modifier;
-    // Setting the given key
-    cmd.in_param        = key;
-
-    rc = cmd_if_send(mfl, &cmd);
-    // Special case
-    if (rc == MFE_CMDIF_BAD_STATUS_ERR && cmd.opcode_modifier == 0) {
-        if (cmd.status == MISMATCH_KEY_RC) {
-            return MFE_MISMATCH_KEY;
-        }
-    }
-    return rc;
-}
-
 int mf_enable_hw_access(mflash* mfl, u_int64_t key)
 {
-    return cmdif_hw_access_int(mfl, key, 0 /* Unlock */);
+    int rc;
+    rc = tcif_hw_access(mfl->mf, key, 0 /* Unlock */);
+    return (rc == ME_CMDIF_UNKN_TLV) ? MFE_MISMATCH_KEY : MError2MfError(rc);
 
 }
 
@@ -2832,9 +2897,8 @@ int mf_disable_hw_access(mflash* mfl)
 {
     int rc;
     // We need to release the semaphore because we will not have any access to semaphore after disabling the HW access
-    rc = release_semaphore(mfl); CHECK_RC(rc);
-    return cmdif_hw_access_int(mfl, 0, 1 /* Lock */);
+    rc = release_semaphore(mfl, 1); CHECK_RC(rc);
+    rc = tcif_hw_access(mfl->mf, 0, 1 /* Lock */);
+    return (rc == ME_CMDIF_UNKN_TLV) ? MFE_MISMATCH_KEY : MError2MfError(rc);
 }
-
-/**********************************************************************************************/
 

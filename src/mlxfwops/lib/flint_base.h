@@ -2,7 +2,7 @@
  *
  * flint_base.h - FLash INTerface
  *
- * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies Ltd.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -31,9 +31,10 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
+ *  Version: $Id: flint_base.h 7522 2011-11-16 15:37:21Z mohammad $
+ *
  */
-
-
 #ifndef FLINT_BASE_H
 #define FLINT_BASE_H
 
@@ -43,28 +44,10 @@
     #endif
 #else
     #include "uefi_c.h"
-    // #include "uefi_c.cpp"
 #endif
 
-
-#include <ctype.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <time.h>
-#include <map>
-
-
-
-#include "tools_version.h"
-
 #include <signal.h>
+#include "tools_version.h"
 
 #ifndef __WIN__
 
@@ -89,9 +72,6 @@
         #define vsnprintf(buf, len, format, args) (vsprintf(buf, format, args))
         #define snprintf(buf, len, format, args...) (sprintf(buf, format, args))
     #else // Linux GCC
-#ifndef UEFI_BUILD
-        #include <termios.h>
-#endif
         #ifdef __FreeBSD__
             #define SWAPL(l) ntohl(l)
             #include <sys/endian.h>
@@ -145,7 +125,7 @@
     #endif
 #endif // __WIN__
 
-#include <memory>
+
 #include <vector>
 #include "compatibility.h"
 #include "mlxfwops_com.h"
@@ -155,41 +135,6 @@ static inline void be_guid_to_cpu(guid_t* to, guid_t* from) {
         to->l=__be32_to_cpu(from->l);
 }
 namespace std {}; using namespace std;
-/*
-#ifndef __be32_to_cpu
-    #define __be32_to_cpu(x) ntohl(x)
-    #ifndef bswap_32
-        #define bswap_32(x) (htonl(x))
-    #endif
-#endif
-#ifndef __cpu_to_be32
-    #define __cpu_to_be32(x) htonl(x)
-#endif
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-    #ifndef __cpu_to_le32
-        #define  __cpu_to_le32(x) (x)
-    #endif
-    #ifndef __le32_to_cpu
-        #define  __le32_to_cpu(x) (x)
-    #endif
-#elif __BYTE_ORDER == __BIG_ENDIAN
-    #ifndef __cpu_to_le32
-        #define  __cpu_to_le32(x) bswap_32(x)
-    #endif
-    #ifndef __le32_to_cpu
-        #define  __le32_to_cpu(x) bswap_32(x)
-    #endif
-#else
-    #ifndef __cpu_to_le32
-        #define  __cpu_to_le32(x) bswap_32(__cpu_to_be32(x))
-    #endif
-    #ifndef __le32_to_cpu
-        #define  __le32_to_cpu(x) __be32_to_cpu(bswap_32(x))
-    #endif
-#endif
-*/
-
 
 #define TOCPU1(s) s = __be32_to_cpu((u_int32_t)(s));
 #define CPUTO1(s) s = __cpu_to_be32((u_int32_t)(s));
@@ -273,6 +218,7 @@ namespace std {}; using namespace std;
 #define FS_DATA_OFF      0x28
 #define SWITCHX_HW_ID    581
 #define SWITCH_IB_HW_ID  583
+#define SWITCH_EN_HW_ID  585
 
 #define CX4_HW_ID		  521
 #define CX3_HW_ID         501
@@ -282,9 +228,9 @@ namespace std {}; using namespace std;
 #define CONNECT_IB_HW_ID  511
 #define BRIDGEX_HW_ID     6100
 #define IS4_HW_ID         435
-#define TAVOR_HW_ID       23108
-#define ARBEL_HW_ID       25208
-#define SINAI_HW_ID       25204
+#define INFINIHOST_HW_ID            23108
+#define INFINIHOST_III_EX_HW_ID     25208
+#define INFINIHOST_III_LX_HW_ID     25204
 #define CONNECT_IB_SW_ID  4113
 
 // FS3 defines
@@ -362,19 +308,23 @@ typedef enum fs3_section {
     FS3_UPGRADE_CODE  = 0x7,
     FS3_HW_BOOT_CFG   = 0x8,
     FS3_HW_MAIN_CFG   = 0x9,
+    FS3_PHY_UC_CODE   = 0xa,
+    FS3_PHY_UC_CONSTS = 0xb,
     FS3_IMAGE_INFO    = 0x10,
     FS3_FW_BOOT_CFG   = 0x11,
     FS3_FW_MAIN_CFG   = 0x12,
     FS3_ROM_CODE      = 0x18,
     FS3_RESET_INFO    = 0x20,
-    FS3_DBG_LOG_MAP   = 0x30,
-    FS3_DBG_FW_INI    = 0x31,
+    FS3_DBG_FW_INI    = 0x30,
+    // FS3_DBG_LOG_MAP = 0x30 - in practice its unused and DBG_FW_INI is found in that section instead
     FS3_DBG_FW_PARAMS = 0x32,
     FS3_FW_ADB        = 0x33,
     FS3_MFG_INFO      = 0xe0,
     FS3_DEV_INFO      = 0xe1,
-    FS3_NV_DATA       = 0xe2,
+    FS3_NV_DATA1       = 0xe2,
     FS3_VPD_R0        = 0xe3,
+    FS3_NV_DATA2      = 0xe4,
+    FS3_FW_NV_LOG     = 0xe5,
     FS3_ITOC          = 0xfd,
     FS3_END           = 0xff,
 } fs3_section_t;

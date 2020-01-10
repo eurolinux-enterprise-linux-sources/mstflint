@@ -39,15 +39,16 @@ UTILS_DIR = $(top_srcdir)/mft_utils
 DEV_MGT_DIR = $(top_srcdir)/dev_mgt
 LAYOUTS_LIB = $(LAYOUTS_DIR)/libtools_layouts.a
 UTILS_LIB = $(USER_DIR)/mft_utils/libmftutils.a
+CMDIF_DIR = $(USER_DIR)/cmdif
 
 
 INCLUDES = -I. -I$(USER_DIR) -I$(top_srcdir)/include/mtcr_ul -I$(MTCR_DIR) -I$(COMMON_DIR) $(WIN64_INC)\
-           -I$(MFT_EXT_LIBS_INC_DIR) -I $(LAYOUTS_DIR) -I$(MFT_EXT_LIBS_INC_DIR)/zlib -I $(UTILS_DIR) -I$(DEV_MGT_DIR)
+           -I$(MFT_EXT_LIBS_INC_DIR) -I $(LAYOUTS_DIR) -I$(MFT_EXT_LIBS_INC_DIR)/zlib -I $(UTILS_DIR) -I$(DEV_MGT_DIR) -I$(CMDIF_DIR)
 
 AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe
 bin_PROGRAMS = mstconfig
 
-mstconfig_LDADD =  ../reg_access/libreg_access.a $(LAYOUTS_LIB)  $(MTCR_DIR)/libmtcr_ul.a  $(MLNXOS_PPC_LIBS) $(LIBSTD_CPP) $(UTILS_LIB) $(DEV_MGT_DIR)/libdev_mgt.a -ldl
+mstconfig_LDADD = $(CMDIF_DIR)/libcmdif.a ../reg_access/libreg_access.a $(LAYOUTS_LIB) $(MTCR_DIR)/libmtcr_ul.a $(MLNXOS_PPC_LIBS) $(LIBSTD_CPP) $(UTILS_LIB) $(DEV_MGT_DIR)/libdev_mgt.a -ldl
 
 mstconfig_SOURCES = mlxcfg_ui.h mlxcfg_ui.cpp\
 			 mlxcfg_parser.cpp\

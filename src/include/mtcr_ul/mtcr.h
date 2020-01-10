@@ -1,35 +1,14 @@
-/*
- *  mtcr.h - Mellanox Software tools (mst) driver definitions
+/*                  - Mellanox Confidential and Proprietary -
  *
- * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+ *  Copyright (C) Jan 2013, Mellanox Technologies Ltd.  ALL RIGHTS RESERVED.
  *
- * This software is available to you under a choice of one of two
- * licenses.  You may choose to be licensed under the terms of the GNU
- * General Public License (GPL) Version 2, available from the file
- * COPYING in the main directory of this source tree, or the
- * OpenIB.org BSD license below:
+ *  Except as specifically permitted herein, no portion of the information,
+ *  including but not limited to object code and source code, may be reproduced,
+ *  modified, distributed, republished or otherwise exploited in any form or by
+ *  any means for any purpose without the prior written permission of Mellanox
+ *  Technologies Ltd. Use of software subject to the terms and conditions
+ *  detailed in the file "LICENSE.txt".
  *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- * 
- *      - Redistributions of source code must retain the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer.
- *
- *      - Redistributions in binary form must reproduce the above
- *        copyright notice, this list of conditions and the following
- *        disclaimer in the documentation and/or other materials
- *        provided with the distribution.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
  */
 
 #ifndef MTCR_H
@@ -55,6 +34,11 @@ typedef enum MError {
     ME_UNKOWN_ACCESS_TYPE,
     ME_UNSUPPORTED_DEVICE,
     ME_REG_NOT_SUPPORTED,
+
+    ME_PCI_READ_ERROR,
+    ME_PCI_WRITE_ERROR,
+    ME_PCI_SPACE_NOT_SUPPORTED,
+    ME_PCI_IFC_TOUT,
 
     // errors regarding REG_ACCESS
     ME_REG_ACCESS_OK = 0,
@@ -91,6 +75,10 @@ typedef enum MError {
     ME_ICMD_STATUS_IFC_BUSY,
     ME_ICMD_STATUS_ICMD_NOT_READY,
     ME_ICMD_UNSUPPORTED_ICMD_VERSION,
+    ME_ICMD_UNKNOWN_STATUS,
+    ME_ICMD_ICM_NOT_AVAIL,
+    ME_ICMD_WRITE_PROTECT,
+    ME_ICMD_SIZE_EXCEEDS_LIMIT,
 
     //errors regarding Tools CMDIF
     ME_CMDIF_BUSY = 0x300,
@@ -99,6 +87,18 @@ typedef enum MError {
     ME_CMDIF_BAD_OP,
     ME_CMDIF_NOT_SUPP,
     ME_CMDIF_BAD_SYS,
+    ME_CMDIF_UNKN_TLV,
+    ME_CMDIF_RES_STATE,
+    ME_CMDIF_UNKN_STATUS,
+
+    //errors regarding MAD IF
+    ME_MAD_BUSY = 0x400,
+    ME_MAD_REDIRECT,
+    ME_MAD_BAD_VER,
+    ME_MAD_METHOD_NOT_SUPP,
+    ME_MAD_METHOD_ATTR_COMB_NOT_SUPP,
+    ME_MAD_BAD_DATA,
+    ME_MAD_GENERAL_ERR,
 
     ME_LAST
 } MError;
@@ -107,9 +107,9 @@ typedef enum Mdevs_t {
     MDEVS_GAMLA     = 0x01, /*  Each device that actually is a Gamla */
     MDEVS_I2CM      = 0x02, /*  Each device that can work as I2C master */
     MDEVS_MEM       = 0x04, /*  Each device that is a memory driver (vtop) */
-    MDEVS_TAVOR_DDR = 0x08, /*  Each device that maps to Tavor DDR */
-    MDEVS_TAVOR_UAR = 0x10, /*  Each device that maps to Tavor UAR */
-    MDEVS_TAVOR_CR  = 0x20, /*  Each device that maps to Tavor CR */
+    MDEVS_TAVOR_DDR = 0x08, /*  Each device that maps to DDR */
+    MDEVS_TAVOR_UAR = 0x10, /*  Each device that maps to UAR */
+    MDEVS_TAVOR_CR  = 0x20, /*  Each device that maps to CR */
     MDEVS_IF        = 0x40, /*  Standard device  interface */
     MDEVS_REM       = 0x80, /*  Remote devices */
     MDEVS_PPC       = 0x100, /*  PPC devices */
@@ -171,12 +171,12 @@ typedef enum {
     RA_MFBE=0x9012,
 } reg_access_t;
 
-enum mtcr_access_method {
+typedef enum mtcr_access_method {
     MTCR_ACCESS_ERROR  = 0x0,
     MTCR_ACCESS_MEMORY = 0x1,
     MTCR_ACCESS_CONFIG = 0x2,
     MTCR_ACCESS_INBAND = 0x3
-};
+} mtcr_access_method_t;
 /*
  * Read 4 bytes, return number of succ. read bytes or -1 on failure
  */
@@ -216,7 +216,7 @@ void mdevices_info_destroy(dev_info* dev_info, int len);
 int mget_mdevs_type(mfile *mf, u_int32_t *mtype);
 
 /*
- * Open Mellanox Software tools (mst) driver. Device type==TAVOR
+ * Open Mellanox Software tools (mst) driver. Device type==INFINIHOST
  * Return valid mfile ptr or 0 on failure
  */
 mfile *mopen(const char *name);
@@ -255,14 +255,22 @@ int icmd_send_command(mfile *mf, int opcode, void* data, int data_size, int skip
 
 int icmd_clear_semaphore(mfile *mf);
 
+
+int tools_cmdif_send_inline_cmd(mfile* mf, u_int64_t in_param, u_int64_t* out_param,
+                                u_int32_t input_modifier, u_int16_t opcode, u_int8_t  opcode_modifier);
+
+int tools_cmdif_send_mbox_command(mfile* mf, u_int32_t input_modifier, u_int16_t opcode, u_int8_t  opcode_modifier,
+                                  int data_offs_in_mbox, void* data, int data_size, int skip_write);
+
+int tools_cmdif_unlock_semaphore(mfile *mf);
+
+
 int mget_max_reg_size(mfile *mf);
 
 const char* m_err2str(MError status);
 
 int mread_buffer(mfile *mf, unsigned int offset, u_int8_t* data, int byte_len);
 int mwrite_buffer(mfile *mf, unsigned int offset, u_int8_t* data, int byte_len);
-
-int tools_cmdif_query_dev_cap(mfile *mf, u_int32_t offset, u_int64_t* data);
 
 #ifdef __cplusplus
 }

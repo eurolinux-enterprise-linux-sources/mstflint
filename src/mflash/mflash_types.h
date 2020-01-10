@@ -14,12 +14,12 @@
  *      - Redistributions of source code must retain the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer.
- * 
+ *
  *      - Redistributions in binary form must reproduce the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer in the documentation and/or other materials
  *        provided with the distribution.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -28,8 +28,8 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
-
 
 #ifndef MFLASH_TYPES_H
 #define MFLASH_TYPES_H
@@ -39,6 +39,7 @@ typedef enum MfError {
     MFE_ERROR,
     MFE_BAD_PARAMS,
     MFE_CR_ERROR,
+    MFE_HW_DEVID_ERROR,
     MFE_INVAL,
     MFE_NOT_IMPLEMENTED,
     MFE_UNSUPPORTED_FLASH_TOPOLOGY,
@@ -60,6 +61,7 @@ typedef enum MfError {
     MFE_CMDIF_BAD_STATUS_ERR,
     MFE_CMDIF_TIMEOUT_ERR,
     MFE_CMDIF_GO_BIT_BUSY,
+    MFE_CMDIF_UNKN_TLV,
     MFE_MISMATCH_KEY,
     MFE_UNKNOWN_REG,
     MFE_DIRECT_FW_ACCESS_DISABLED,
@@ -95,8 +97,8 @@ typedef enum MfError {
     MFE_REG_ACCESS_MSG_RECPT_ACK,
     MFE_REG_ACCESS_UNKNOWN_ERR,
     MFE_REG_ACCESS_SIZE_EXCCEEDS_LIMIT,
-
-
+    MFE_PCICONF,
+    MFE_ILLEGAL_BANK_NUM,
 
 
     MFE_LAST

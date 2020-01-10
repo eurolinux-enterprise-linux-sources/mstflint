@@ -1,11 +1,11 @@
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	3.6.0
-Release:	0.1_1.8.g7d4dede%{?dist}
+Version:	4.0.0
+Release:	0.1.30.g00eb005%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-Source:		http://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.8.g7d4dede.tar.gz
-Url:		http://www.openfabrics.org
+Source:		https://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.30.g00eb005.tar.gz
+Url:		https://www.openfabrics.org
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel
 Obsoletes:	openib-mstflint <= 1.4 openib-tvflash <= 0.9.2 tvflash <= 0.9.0
@@ -40,6 +40,10 @@ rm -rf %{buildroot}
 %_bindir/*
 
 %changelog
+* Thu Mar 12 2015 Doug Ledford <dledford@redhat.com> - 4.0.0-0.1.30.g00eb005
+- Update to latest upstream release
+- Resolves: bz1006988
+
 * Wed Jun 18 2014 Doug Ledford <dledford@redhat.com> - 3.6.0-1.8.g7d4dede
 - Update to latest upstream release
 - Resolves: bz1059093

@@ -14,12 +14,12 @@
  *      - Redistributions of source code must retain the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer.
- * 
+ *
  *      - Redistributions in binary form must reproduce the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer in the documentation and/or other materials
  *        provided with the distribution.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -54,12 +54,14 @@ void print_dword(crd_dword_t *dword) {
     printf("0x%8.8x 0x%8.8x\n", dword->addr, dword->data);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
     int i ;
     mfile *mf;
     int rc;
     int full = 0;
     int cause_addr = -1, cause_off = -1;
+    crd_ctxt_t *context;
+    u_int32_t arr_size = 0;
 
     if (argc < 2 || argc > 4) {
         fprintf(stderr, "%s", correct_cmdline);
@@ -95,7 +97,14 @@ int main(int argc, char** argv) {
         ++i;
     }
 
-    if (i >= argc || !( mf=mopen(argv[i]) )) {
+#if defined(linux)
+    if (geteuid() != 0) {
+        printf("Permission denied, you need to run this tool as root\n");
+        return 1;
+    }
+#endif
+
+    if (i >= argc || !( mf = mopen((const char *)argv[i]) )) {
         fprintf(stderr, "Unable to open device %s. Exiting.\n",
                 (i < argc) ? argv[i] : "(not specified in command line)");
         return 1;
@@ -107,8 +116,6 @@ int main(int argc, char** argv) {
     }
 
     rc = CRD_OK;
-    crd_ctxt_t *context;
-
     rc = crd_init(&context, mf, full, cause_addr, cause_off);
     if (rc) {
         mclose(mf);
@@ -116,7 +123,7 @@ int main(int argc, char** argv) {
     }
 
     //printf("Number of blocks : 0x%d\n",(context)->block_count);
-    u_int32_t arr_size = 0;
+
     rc = crd_get_dword_num(context, &arr_size);
     if (rc) {
         crd_free(context);

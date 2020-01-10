@@ -36,6 +36,7 @@ MFLASH_DIR  = $(top_srcdir)/mflash
 COMMON_DIR  = $(top_srcdir)/common
 LAYOUTS_DIR = $(top_srcdir)/tools_layouts
 MFT_UTILS_DIR = $(top_srcdir)/mft_utils
+CMDIF_DIR   = $(top_srcdir)/cmdif
 
 INCLUDES = -I$(top_srcdir) -I$(srcdir) -I$(MTCR_DIR) -I$(MFLASH_DIR) -I$(COMMON_DIR) \
            -I$(LAYOUTS_DIR) -I$(MFT_UTILS_DIR)
@@ -49,6 +50,7 @@ mstflint_SOURCES = flint.cpp flint.h subcommands.cpp subcommands.h\
 mstflint_LDADD =  ../mlxfwops/lib/libmlxfwops.a  \
                   ../cmdparser/libcmdparser.a    \
 		  ../mflash/libmflash.a          \
+		  $(CMDIF_DIR)/libcmdif.a        \
 		  ../reg_access/libreg_access.a  \
 		  ../mtcr_ul/libmtcr_ul.a        \
                   ../tools_layouts/libtools_layouts.a \
@@ -64,5 +66,5 @@ endif
 
 #get mst device examples and tool name from makefile
 mstflint_CXXFLAGS+= -DFLINT_NAME=\"mstflint\" -DFLINT_DISPLAY_NAME=\"MstFlint\"
-mstflint_CXXFLAGS += -DMST_DEV_EXAMPLE1=\"03:00.0\" -DMST_DEV_EXAMPLE2=\"mlx4_0\" -DMST_DEV_EXAMPLE3=\"03:00.0\"
+mstflint_CXXFLAGS += -DMST_DEV_EXAMPLE1=\"03:00.0\" -DMST_DEV_EXAMPLE2=\"mlx4_0\" -DMST_DEV_EXAMPLE3=\"03:00.0\" -DMST_DEV_EXAMPLE4=\"04:00.0\"
 

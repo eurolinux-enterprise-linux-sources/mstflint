@@ -30,7 +30,6 @@
  * SOFTWARE.
  */
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,9 +52,9 @@ struct dev_info {
     enum dm_dev_type dev_type;
 };
 
-#define DEVID_ADDR_ANAFA2       0x60014
-#define DEVID_ADDR              0xf0014
-#define DM_ARBEL_DEV_VER_ADDR   0x82600
+#define DEVID_ADDR_INFINISCALE_III          0x60014
+#define DEVID_ADDR                          0xf0014
+#define DM_INFINIHOST_III_EX_DEV_VER_ADDR   0x82600
 
 static struct dev_info g_devs_info[] = {
     {
@@ -190,7 +189,16 @@ static struct dev_info g_devs_info[] = {
         .hw_rev_id = -1,
         .sw_dev_id = -1,
         .name      = "SwitchIB",
-        .port_num  = 2,
+        .port_num  = 36,
+        .dev_type  = DM_SWITCH
+    },
+    {
+        .dm_id     = DeviceSwitchEN,
+        .hw_dev_id = 0x249,
+        .hw_rev_id = -1,
+        .sw_dev_id = -1,
+        .name      = "SwitchEN",
+        .port_num  = 64,
         .dev_type  = DM_SWITCH
     },
     {
@@ -248,13 +256,13 @@ int dm_get_device_id(mfile* mf,
     }
 
     if (i == DeviceEndMarker) {
-        /* Special cases - Sinai HW id and Anafa2 devid address. */
+        /* Special cases - InfiniHost_III_LX HW id and InfiniScale_III devid address. */
         if (*ptr_hw_dev_id == 24204) {
-            /* Some old Sinais have hw dev is of 24204 */
+            /* Some old InfiniHost_III_LXs have hw dev is of 24204 */
             *ptr_dm_dev_id = DeviceInfiniHostIIILx;
         } else {
-            /* Try Anafa2 devid address */
-            if (mread4(mf, DEVID_ADDR_ANAFA2, &dword) != 4)
+            /* Try InfiniScale_III devid address */
+            if (mread4(mf, DEVID_ADDR_INFINISCALE_III, &dword) != 4)
                 return 1;
             if ((int)EXTRACT(dword, 0, 16) == g_devs_info[DeviceInfiniScaleIII].hw_dev_id) {
                 *ptr_dm_dev_id = DeviceInfiniScaleIII;
@@ -268,17 +276,17 @@ int dm_get_device_id(mfile* mf,
         }
     }
 
-    /* Special cases: For Arbel we need to check the SW id as well */
+    /* Special cases: For InfiniHost_III_EX we need to check the SW id as well */
     if (*ptr_hw_dev_id == g_devs_info[DeviceInfiniHostIIIEx].hw_dev_id) {
-        if (mread4(mf, DM_ARBEL_DEV_VER_ADDR, &dword) != 4)
+        if (mread4(mf, DM_INFINIHOST_III_EX_DEV_VER_ADDR, &dword) != 4)
         {
-            //printf("FATAL - Can't read arbel dev_ver addr\n");
+            //printf("FATAL - Can't read InfiniHost_III_EX dev_ver addr\n");
             return 1;
         }
 
-        if (EXTRACT(dword, 16, 16) == 0x25218 ||
-            EXTRACT(dword, 16, 16) == 0x25228 ||
-            EXTRACT(dword, 16, 16) == 0x25238) {
+        if (EXTRACT(dword, 16, 16) == 25218 ||
+            EXTRACT(dword, 16, 16) == 25228 ||
+            EXTRACT(dword, 16, 16) == 25238) {
             *ptr_dm_dev_id = DeviceInfiniHostIIIEx_MF;
         } else {
             *ptr_dm_dev_id = DeviceInfiniHostIIIEx;

@@ -28,8 +28,8 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +46,6 @@
 #define TOOLS_HCR_SEM		0xf03bc // sem47
 #define TOOLS_SEM_TRIES		1024     // Number of tries to obtain a TOOLS sem.
 
-#define QUERY_DEV_CAP_OP	0x3
 #define MBOX_WRITE_OP		0x70
 #define MBOX_READ_OP		0x71
 #define REG_ACCESS_OP		0x3b
@@ -73,6 +72,22 @@
         *p = __be32_to_cpu(*p);                                    \
     } while(0)
 
+#if __BYTE_ORDER == __BIG_ENDIAN
+
+u_int64_t swap_dwords_be(u_int8_t* buff) {
+    u_int32_t first = *(u_int32_t*)(&buff[0]);\
+    u_int32_t second = *(u_int32_t*)(&buff[4]);\
+    u_int64_t dest = 0;
+    dest = MERGE64(dest, first, 0, 32);
+    dest = MERGE64(dest, second, 32, 32);
+    return dest;
+}
+#else
+u_int64_t swap_dwords_be(u_int8_t* buff) {
+    return *((u_int64_t*)buff);
+}
+#endif
+
 typedef struct tools_cmdif_t {
     u_int64_t in_param;
     u_int64_t out_param;
@@ -85,6 +100,36 @@ typedef struct tools_cmdif_t {
     u_int8_t  go;
     u_int8_t  status;
 } tools_cmdif;
+
+
+static int translate_status(int status) {
+    switch (status) {
+    case 0x0:
+        return ME_OK;
+    case 0x1:
+        return ME_CMDIF_BUSY;
+    case 0x2:
+        return ME_CMDIF_BAD_OP;
+    case 0x3:
+        return ME_CMDIF_UNKN_TLV;
+    case 0x4:
+        return ME_CMDIF_BAD_SYS;
+    case 0x9:
+        return ME_CMDIF_RES_STATE;
+    default:
+        //printf("-D- Unknown status: 0x%x\n", status);
+        return ME_CMDIF_UNKN_STATUS;
+    }
+}
+
+#ifdef __FreeBSD__
+void mpci_change(mfile* mf)
+{
+    (void)mf;
+}
+#else
+extern void mpci_change(mfile* mf);
+#endif
 
 static void tools_cmdif_pack(tools_cmdif* cmd, u_int32_t* buf) {
     memset((char*)buf, 0, CMD_IF_SIZE);
@@ -104,6 +149,7 @@ static void tools_cmdif_unpack(tools_cmdif* cmd, u_int32_t* buf) {
 
     cmd->in_param       = MERGE64(cmd->in_param, buf[0], 32, 32);
     cmd->in_param       = MERGE64(cmd->in_param, buf[1],  0, 32);
+
     cmd->input_modifier = buf[2];
     cmd->out_param      = MERGE64(cmd->out_param, buf[3], 32, 32);
     cmd->out_param      = MERGE64(cmd->out_param, buf[4],  0, 32);
@@ -130,6 +176,10 @@ static int tools_cmdif_flash_lock(mfile* mf, int lock_state) {
     }
 
     return ME_OK;
+}
+
+int tools_cmdif_unlock_semaphore(mfile *mf) {
+    return tools_cmdif_flash_lock(mf, 0);
 }
 
 static int tools_cmdif_wait_go(mfile* mf, int* retries)
@@ -163,7 +213,6 @@ static int tools_cmdif_send_cmd_int(mfile* mf, tools_cmdif* cmd)
     u_int32_t raw_cmd[CMD_IF_SIZE/4];
     int act_retries;
     int rc;
-
 
     // Check if the go BIT is ready
     rc = tools_cmdif_wait_go(mf, NULL);
@@ -200,47 +249,40 @@ static int tools_cmdif_send_cmd_int(mfile* mf, tools_cmdif* cmd)
     return ME_OK;
 }
 
-int tools_cmdif_send_cmd(mfile* mf,
+int tools_cmdif_send_inline_cmd(mfile* mf,
 					 u_int64_t in_param,
 					 u_int64_t* out_param,
 					 u_int32_t input_modifier,
 					 u_int16_t opcode,
-					 u_int8_t  opcode_modifier,
-					 u_int8_t*  status)
+					 u_int8_t  opcode_modifier)
 {
-	if (!mf || !out_param || !status) {
-		return ME_BAD_PARAMS;
-	}
-	tools_cmdif cmdif;
-	memset(&cmdif, 0, sizeof(tools_cmdif));
-	cmdif.in_param = in_param;
-	cmdif.input_modifier = input_modifier;
-	cmdif.opcode = opcode;
-	cmdif.opcode_modifier = opcode_modifier;
+    if (!mf) {
+        return ME_BAD_PARAMS;
+    }
+    tools_cmdif cmdif;
+    memset(&cmdif, 0, sizeof(tools_cmdif));
+    cmdif.in_param = in_param;
+    cmdif.input_modifier = input_modifier;
+    cmdif.opcode = opcode;
+    cmdif.opcode_modifier = opcode_modifier;
 
-	//take semaphore
-	if (tools_cmdif_flash_lock(mf, 1)) {
-		return ME_SEM_LOCKED;
-	}
-	int rc = tools_cmdif_send_cmd_int(mf, &cmdif);
-	// release it
-	tools_cmdif_flash_lock(mf, 0);
-	*out_param = cmdif.out_param;
-	*status = cmdif.status;
+    //take semaphore
+    mpci_change(mf);
+    if (tools_cmdif_flash_lock(mf, 1)) {
+        mpci_change(mf);
+        return ME_SEM_LOCKED;
+    }
+    int rc = tools_cmdif_send_cmd_int(mf, &cmdif);
+    // release it
+    tools_cmdif_flash_lock(mf, 0);
+    mpci_change(mf);
+    if (out_param) {
+        *out_param = cmdif.out_param;
+    }
+    if (rc || cmdif.status) {
+        return (rc != ME_CMDIF_BAD_STATUS) ? rc : translate_status(cmdif.status);
+    }
 	return rc;
-}
-
-static int translate_status(int status) {
-	switch (status) {
-	case 0x0:
-		return ME_OK;
-	case 0x2:
-		return ME_CMDIF_BAD_OP;
-	case 0x4:
-		return ME_CMDIF_BAD_SYS;
-	default:
-		return ME_CR_ERROR;
-	}
 }
 
 static int tools_cmdif_mbox_read(mfile* mf, u_int32_t offset, u_int64_t* output)
@@ -258,7 +300,7 @@ static int tools_cmdif_mbox_read(mfile* mf, u_int32_t offset, u_int64_t* output)
 	*output = cmdif.out_param;
 	//printf("-D- outparam: 0x%lx\n", cmdif.out_param);
 	if (rc || cmdif.status) {
-		return ME_CR_ERROR;
+		return (rc != ME_CMDIF_BAD_STATUS) ? rc : translate_status(cmdif.status);
 	}
 	//printf("-D- mbox read OK\n");
 	return ME_OK;
@@ -278,139 +320,185 @@ static int tools_cmdif_mbox_write(mfile* mf, u_int32_t offset, u_int64_t input)
 	int rc = tools_cmdif_send_cmd_int(mf, &cmdif);
 
 	if (rc || cmdif.status) {
-		return ME_CR_ERROR;
+		return (rc != ME_CMDIF_BAD_STATUS) ? rc : translate_status(cmdif.status);
 	}
 	return ME_OK;
 }
 
-int tools_cmdif_query_dev_cap(mfile *mf, u_int32_t offset, u_int64_t* data)
+int tools_cmdif_is_supported(mfile *mf)
 {
-	if (!mf || offset > (TOOLS_HCR_MAX_MBOX - 8)) {
-		return ME_BAD_PARAMS;
-	}
-	// take semaphore
-	if (tools_cmdif_flash_lock(mf, 1)) {
-		return ME_SEM_LOCKED;
-	}
-	// run query_dev_cap cmd
-	tools_cmdif cmdif;
-	memset(&cmdif, 0, sizeof(tools_cmdif));
-	cmdif.opcode = QUERY_DEV_CAP_OP;
-
-	int rc = tools_cmdif_send_cmd_int(mf, &cmdif);
-
-	if (rc || cmdif.status) {
-		tools_cmdif_flash_lock(mf, 0);
-		if (rc == ME_CMDIF_BAD_STATUS) {
-			return translate_status(cmdif.status);
-		}
-		return rc;
-	}
-	// read offset from Mbox
-
-	if (!data) { // if data is null we just check capability of the Tools HCR (i.e if its capable to execute query_dev_cap op)
-		tools_cmdif_flash_lock(mf, 0);
-		return ME_OK;
-	}
-	// offset needs to be in even dwords
-	if (((offset >> 2) & 0x1) != 0) {
-		return ME_BAD_PARAMS;
-	}
-	rc = tools_cmdif_mbox_read(mf, offset>>2, data);
-	// free semaphore
-	tools_cmdif_flash_lock(mf, 0);
-	return rc;
+    int rc = ME_OK;
+    if (!mf) {
+        return ME_BAD_PARAMS;
+    }
+    mpci_change(mf);
+    // take semaphore
+    if (tools_cmdif_flash_lock(mf, 1)) {
+        rc = ME_SEM_LOCKED;
+        goto cleanup;
+    }
+    // run mailbox write cmd (read command fails after driver restart or internal reset)
+    rc = tools_cmdif_mbox_write(mf, 0x0, 0);
+    if (rc) {
+        tools_cmdif_flash_lock(mf, 0);
+        goto cleanup;
+    }
+    tools_cmdif_flash_lock(mf, 0);
+cleanup:
+    mpci_change(mf);
+    return rc;
 }
 
 /*
 static void read_entire_mbox(mfile* mf)
 {
-	int i;
-	int rc;
-	u_int64_t val= 0;
+    int i;
+    int rc;
+    u_int64_t val= 0;
 
-	printf("-D- reading entire mailbox\n");
+    printf("-D- reading entire mailbox\n");
 
-	for(i=0; i<256 ; i+=8) {
-		rc = tools_cmdif_mbox_read(mf, i/4, &val);
-		if (rc) {
-			printf("-D- rc:%d\n", rc);
-		}
-		printf("-D- 0x%x\n", (u_int32_t)val);
-		printf("-D- 0x%x\n", (u_int32_t)(val>>32));
-	}
+    for(i=0; i<256 ; i+=8) {
+        rc = tools_cmdif_mbox_read(mf, i/4, &val);
+        if (rc) {
+            printf("-D- rc:%d\n", rc);
+        }
+        printf("-D- 0x%x\n", (u_int32_t)val);
+        printf("-D- 0x%x\n", (u_int32_t)(val>>32));
+    }
 }
-
-
+*/
+/*
 static void print_buffer(u_int8_t buffer[TOOLS_HCR_MAX_MBOX], const char* pre)
 {
-	int i;
-	u_int32_t *ptr = (u_int32_t*)buffer;
-	printf("-I- %s\n", pre);
-	for (i=0; i< 16; i++) {
-		printf("0x%x\n", ptr[i]);
-	}
-	return;
+    int i;
+    u_int32_t *ptr = (u_int32_t*)buffer;
+    printf("-I- %s\n", pre);
+    for (i=0; i< 16; i++) {
+        printf("0x%x\n", ptr[i]);
+    }
+    return;
 }
 */
 
+#define COMPLEMENT_TO_QUAD_ALLIGNED(byte_sz) \
+        ((byte_sz) + ((8 - ((byte_sz) & 7) == 8) ? 0 : (8 - ((byte_sz) & 7))))
+
+int tools_cmdif_send_mbox_command_int(mfile* mf,
+                                           u_int32_t input_modifier,
+                                           u_int16_t opcode,
+                                           u_int8_t  opcode_modifier,
+                                           int data_offs_in_mbox,
+                                           void* data,
+                                           int write_data_size,
+                                           int read_data_size,
+                                           int skip_write)
+{
+    int read_data_size_quad_alligned =  COMPLEMENT_TO_QUAD_ALLIGNED(read_data_size);
+    int write_data_size_quad_alligned =  COMPLEMENT_TO_QUAD_ALLIGNED(write_data_size);
+    int rc,
+        i;
+    /*printf("-D- opcode: 0x%x, opcode mod: 0x%x, data_offs_in_mbox: 0x%x, write_data_size: 0x%x(0x%x), read_data_size 0x%x(0x%x), skip_write: %d\n",\
+    		opcode, opcode_modifier, data_offs_in_mbox, write_data_size, write_data_size_quad_alligned, read_data_size, read_data_size_quad_alligned, skip_write);*/
+    // check params
+    if (!mf || !data || data_offs_in_mbox < 0 || (data_offs_in_mbox & 7) != 0 || \
+            data_offs_in_mbox + read_data_size_quad_alligned > TOOLS_HCR_MAX_MBOX || \
+            data_offs_in_mbox + write_data_size_quad_alligned > TOOLS_HCR_MAX_MBOX) {
+        return ME_BAD_PARAMS;
+    }
+    mpci_change(mf);
+    //take semaphore
+    if (tools_cmdif_flash_lock(mf, 1)) {
+        mpci_change(mf);
+        return ME_SEM_LOCKED;
+    }
+
+    // write to mailbox if needed
+    u_int8_t mailbox[TOOLS_HCR_MAX_MBOX] = {0};
+    if (!skip_write) {
+        // place the data inside 256 bytes buffer (init with zeroes) and write the entire buffer to mbox
+        // it is required in the TOOLS_HCR HLD to write the ENTIRE MBOX
+
+        memcpy(&(mailbox[data_offs_in_mbox]), data, write_data_size);
+        // switch endianess as fw expects output in big endian
+        TOCPUn(mailbox, TOOLS_HCR_MAX_MBOX/4);
+        int i;
+        //print_buffer(mailbox, "before sending sending");
+        for (i=0 ; i< TOOLS_HCR_MAX_MBOX; i+=8) { // it is required to write in quad word chunks (64bits each time)
+            // on big endian cpu need to swap between the dwords in the quad word
+            u_int64_t val = swap_dwords_be((&mailbox[i]));
+            rc = tools_cmdif_mbox_write(mf, i/4, val);
+            if (rc) {
+                goto cleanup;
+            }
+        }
+       //read_entire_mbox(mf);
+    }
+    // send cmd
+    tools_cmdif cmdif;
+    memset(&cmdif, 0, sizeof(tools_cmdif));
+    cmdif.opcode = opcode;
+    cmdif.opcode_modifier = opcode_modifier;
+    cmdif.input_modifier = input_modifier;
+    rc = tools_cmdif_send_cmd_int(mf, &cmdif);
+    //printf("-D- tools_cmdif_send_cmd_int: rc = 0x%x, cmdif.status: 0x%x\n", rc, cmdif.status);
+    //read_entire_mbox(mf);
+    if (rc || cmdif.status) {
+        if (rc == ME_CMDIF_BAD_STATUS) {
+            rc = translate_status(cmdif.status); // means that driver is down or we dont support the extended version of tools hcr.
+        }
+        goto cleanup;
+    }
+
+    // read from mbox
+
+    // read read_data_size bytes from mbox and update our data
+    for (i = data_offs_in_mbox ; i< (data_offs_in_mbox + read_data_size_quad_alligned); i+=8) { // it is required to write in quad word chunks (64bits each time)
+        rc = tools_cmdif_mbox_read(mf, i/4, (u_int64_t*)&(mailbox[i]));
+        // on big endian cpu need to swap back between the dwords in the quad word
+        u_int64_t val = swap_dwords_be((&mailbox[i]));
+        memcpy(&(mailbox[i]), (u_int8_t*)&val, 8*sizeof(u_int8_t));
+        if (rc) {
+            goto cleanup;
+        }
+    }
+
+    //print_buffer(mailbox, "after sending");
+    // switch endianness back
+    TOCPUn(mailbox, TOOLS_HCR_MAX_MBOX/4);
+    // copy data back to user
+    memcpy(data, &(mailbox[data_offs_in_mbox]), read_data_size);
+    rc = ME_OK;
+cleanup:
+    tools_cmdif_flash_lock(mf, 0);
+    //printf("-D- rc in cmdif: 0x%x\n", rc);
+    mpci_change(mf);
+    return rc;
+}
+
+
 int tools_cmdif_reg_access(mfile *mf, void* data, int write_data_size, int read_data_size)
 {
-	//printf("-D- write data sz: %d, read data sz: %d \n", write_data_size, read_data_size);
-	if (!mf || !data || write_data_size > TOOLS_HCR_MAX_MBOX || read_data_size > TOOLS_HCR_MAX_MBOX) {
-		return ME_BAD_PARAMS;
-	}
-	//take semaphore
-	if (tools_cmdif_flash_lock(mf, 1)) {
-		return ME_SEM_LOCKED;
-	}
-	int rc;
-	// place the data inside 256 bytes buffer (init with zeroes) and write the entire buffer to mbox
-	// it is required in the TOOLS_HCR HLD to write the ENTIRE MBOX
-	u_int8_t buffer[TOOLS_HCR_MAX_MBOX] = {0};
-	memcpy(buffer, data, write_data_size);
-	// switch endianess as fw expects output in big endian
-	TOCPUn(buffer, TOOLS_HCR_MAX_MBOX/4);
-	int i;
-	//print_buffer(buffer, "before sending sending");
-	for (i=0 ; i< TOOLS_HCR_MAX_MBOX; i+=8) { // it is required to write in quad word chunks (64bits each time)
-		u_int64_t* ptr = (u_int64_t*)(&buffer[i]);
-		rc = tools_cmdif_mbox_write(mf, i/4, *ptr);
-		if (rc) {
-			goto cleanup;
-		}
-	}
-	// send access reg cmd
-	tools_cmdif cmdif;
-	memset(&cmdif, 0, sizeof(tools_cmdif));
-	cmdif.opcode = REG_ACCESS_OP;
-	rc = tools_cmdif_send_cmd_int(mf, &cmdif);
-
-	if (rc || cmdif.status) {
-		if (rc == ME_CMDIF_BAD_STATUS) {
-			rc = translate_status(cmdif.status); // means that driver is down or we dont support the extended version of tools hcr.
-		}
-		goto cleanup;
-	}
-	// read read_data_size bytes from mbox and update our data
-	for (i=0 ; i< read_data_size; i+=8) { // it is required to write in quad word chunks (64bits each time)
-		rc = tools_cmdif_mbox_read(mf, i/4, (u_int64_t*)&(buffer[i]));
-		if (rc) {
-			goto cleanup;
-		}
-	}
-
-	//print_buffer(buffer, "after sending");
-	// switch endianness back
-	TOCPUn(buffer, TOOLS_HCR_MAX_MBOX/4);
-	// copy data back to user
-	memcpy(data, buffer, read_data_size);
-	rc = ME_OK;
-cleanup:
-	tools_cmdif_flash_lock(mf, 0);
-	//printf("-D- rc in cmdif: 0x%x\n", rc);
-	return rc;
+    return tools_cmdif_send_mbox_command_int(mf, 0, REG_ACCESS_OP, 0, \
+            0, data, write_data_size, read_data_size, 0);
 }
+
+
+int tools_cmdif_send_mbox_command(mfile* mf,
+                                           u_int32_t input_modifier,
+                                           u_int16_t opcode,
+                                           u_int8_t  opcode_modifier,
+                                           int data_offs_in_mbox,
+                                           void* data,
+                                           int data_size,
+                                           int skip_write)
+{
+
+    return tools_cmdif_send_mbox_command_int(mf, input_modifier, opcode, opcode_modifier, \
+                                             data_offs_in_mbox, data, data_size,\
+                                             data_size, skip_write);
+}
+
 
 /*
 int test_mbox(mfile* mf)
@@ -451,3 +539,4 @@ int test_mbox(mfile* mf)
 
 }
 */
+

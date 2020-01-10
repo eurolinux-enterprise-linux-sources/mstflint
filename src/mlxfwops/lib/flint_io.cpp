@@ -2,7 +2,7 @@
  *
  * flint_io.cpp - FLash INTerface
  *
- * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+ * Copyright (c) 2011 Mellanox Technologies Ltd.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -36,6 +36,7 @@
  *
  */
 
+#include <errno.h>
 #include "flint_io.h"
 
 
@@ -209,7 +210,7 @@ bool Flash::open_com_checks(const char *device, int rc, bool force_lock)
 
     if (rc != MFE_OK) {
         if (rc == MFE_SEM_LOCKED) {
-            return errmsgAdv(_advErrors, "Can not obtain Flash semaphore (62).", "You can run \"flint -clear_semaphore -d <device>\" to force semaphore unlock. See help for details.");
+            return errmsgAdv(_advErrors, "Can not obtain Flash semaphore (63).", "You can run \"flint -clear_semaphore -d <device>\" to force semaphore unlock. See help for details.");
         }
         if (rc == MFE_LOCKED_CRSPACE) {
             _cr_space_locked = 1;
@@ -222,7 +223,7 @@ bool Flash::open_com_checks(const char *device, int rc, bool force_lock)
             return errmsgAdv(_advErrors, "Flash cache replacement is active.", "\n-E- Please use the -override_cache_replacement option in order to access the flash directly.");
         }
 
-        return errmsg("%s %s", errno == 0 ? "" : strerror(errno), mf_err2str(rc));
+        return errmsg("%s%s%s", errno == 0 ? "" : strerror(errno),  errno == 0 ? "" : ". ", mf_err2str(rc));
     }
 
     rc = mf_get_attr(_mfl, &_attr);
@@ -269,6 +270,7 @@ bool Flash::open(const char *device, bool force_lock, bool read_only, int num_of
     // Open device
     int rc;
     _advErrors = advErr;
+    _ignore_cache_replacement = ignore_cashe_replacement ? true : false;
     (void)read_only; // not used , avoid compiler warnings TODO: remove this var from function def
     rc = mf_open(&_mfl, device, num_of_banks, flash_params, ignore_cashe_replacement);
     //printf("device: %s , forceLock: %s , read only: %s, num of banks: %d, flash params is null: %s, ocr: %d, rc: %d\n",
@@ -320,8 +322,6 @@ bool Flash::read(u_int32_t addr,
 bool Flash::read(u_int32_t addr, void *data, int len, bool verbose, const char* message)
 {
     int rc;
-    u_int32_t  perc = 0xffffffff;
-
     if (addr & 0x3) {
         return errmsg("Address should be 4-bytes aligned.");
     }
@@ -352,7 +352,9 @@ bool Flash::read(u_int32_t addr, void *data, int len, bool verbose, const char* 
             }
         }
 
-    } else {
+    }
+    else {
+        u_int32_t  perc = 0xffffffff;
         u_int32_t *p = (u_int32_t *)data;
         for (int i=0; i<len/4; i++) {
             if (!read(addr, p++))
@@ -372,6 +374,7 @@ bool Flash::read(u_int32_t addr, void *data, int len, bool verbose, const char* 
             }
         }
     }
+
     // Report
     if (verbose) {
         printf("\r%s%%100", message);
@@ -486,7 +489,7 @@ bool Flash::write  (u_int32_t addr,
         deal_with_signal();
 
         if (rc != MFE_OK) {
-            if (rc == MFE_ICMD_BAD_PARAM) {
+            if (rc == MFE_ICMD_BAD_PARAM || rc == MFE_REG_ACCESS_BAD_PARAM) {
                 return errmsg("Flash write of %d bytes to address %s0x%x failed: %s\n"
                           "    This may indicate that a FW image was already updated on flash, but not loaded by the device.\n"
                           "    Please load FW on the device (reset device or reboot machine) before burning a new FW.",
@@ -577,7 +580,7 @@ bool Flash::erase_sector  (u_int32_t addr) {
     rc = mf_erase_sector(_mfl, phys_addr);
     deal_with_signal();
     if (rc != MFE_OK) {
-        if (rc == MFE_REG_ACCESS_RES_NOT_AVLBL) {
+        if (rc == MFE_REG_ACCESS_RES_NOT_AVLBL || rc == MFE_REG_ACCESS_BAD_PARAM) {
             return errmsg("Flash erase of address 0x%x failed: %s\n"
                           "    This may indicate that a FW image was already updated on flash, but not loaded by the device.\n"
                           "    Please load FW on the device (reset device or restart driver) before burning a new FW.",
@@ -617,11 +620,11 @@ bool Flash::disable_hw_access(void)
 }
 
 bool Flash::sw_reset() {
-    if (_attr.hw_dev_id != 435 && _attr.hw_dev_id != SWITCHX_HW_ID) {
-        return errmsg("operation supported only for InfiniScale4 switch and SwitchX over IB interface");
-    }
     int rc = mf_sw_reset(_mfl);
     if (rc != MFE_OK) {
+        if (rc == MFE_UNSUPPORTED_DEVICE) {
+            return errmsg("operation supported only for InfiniScale4 switch, SwitchX and SwitchIB over IB interface");
+        }
         return errmsg("%s (%s)", errno == 0 ? "" : strerror(errno), mf_err2str(rc));
     }
     return true;
@@ -750,6 +753,27 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
     }
 
     return true;
+}
+
+bool Flash::is_flash_write_protected()
+{
+    int bank;
+    int rc;
+    write_protect_info_t protect_info;
+
+    if (_attr.write_protect_support) {
+        for (bank = 0; bank < _attr.banks_num; bank++) {
+            rc = mf_get_write_protect(_mfl, bank, &protect_info);
+            if (rc == MFE_OK && protect_info.sectors_num != 0) {
+                return true;
+            } else {
+                if (rc && rc != MFE_NOT_SUPPORTED_OPERATION) { // We ignore when operation is not supported
+                    return true;
+                }
+            }
+       }
+    }
+    return false;
 }
 
 void Flash::deal_with_signal()

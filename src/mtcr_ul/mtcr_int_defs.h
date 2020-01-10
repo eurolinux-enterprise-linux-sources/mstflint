@@ -14,12 +14,12 @@
  *      - Redistributions of source code must retain the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer.
- * 
+ *
  *      - Redistributions in binary form must reproduce the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer in the documentation and/or other materials
  *        provided with the distribution.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -28,6 +28,7 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
 
 #ifndef MTCR_INT_DEFS
@@ -44,16 +45,27 @@ typedef int (*f_mclose)        (mfile* mf);
 
 
 typedef struct icmd_params_t {
-	int icmd_opened;
-	int took_semaphore;
-	int ctrl_addr;
-	int cmd_addr;
+    int icmd_opened;
+    int took_semaphore;
+    int ctrl_addr;
+    int cmd_addr;
+    u_int32_t max_cmd_size;
+    int semaphore_addr;
+    int static_cfg_not_done_addr;
+    int static_cfg_not_done_offs;
 }icmd_params;
+
+typedef enum {
+    AS_ICMD = 1,
+    AS_CR_SPACE = 2,
+    AS_SEMAPHORE = 0xa
+} address_space_t;
 
 struct mfile_t {
     char*            dev_name;
     void            *ctx; // Access method context
     int              access_type;
+    int              fdlock;
 
     f_mread4         mread4;
     f_mwrite4        mwrite4;
@@ -62,8 +74,21 @@ struct mfile_t {
     f_maccess_reg    maccess_reg;
     f_mclose         mclose;
 
+    /******** RESERVED FIELDS FOR SWITCHING METHOD IF NEEDED ******/
+    void            *res_ctx; // Reserved access method context
+    int              res_access_type;
+    int              res_fdlock;
+    f_mread4         res_mread4;
+    f_mwrite4        res_mwrite4;
+    f_mread4_block   res_mread4_block;
+    f_mwrite4_block  res_mwrite4_block;
+    /*************************************************************/
+
     //for ICMD access
     icmd_params icmd;
+    int vsec_supp;
+    u_int32_t vsec_addr;
+    int address_space;
 };
 #endif
 
