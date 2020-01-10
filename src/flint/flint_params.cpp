@@ -81,6 +81,8 @@ FlintParams::FlintParams()
     flash_params.num_of_flashes = 0;
     flash_params.log2size = 0;
     use_dev_img_info = false;
+    skip_ci_req = false;
+    use_dev_rom = false;
 }
 
 FlintParams::~FlintParams()

@@ -29,6 +29,11 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
+ * mlxcfg_status.h
+ *
+ *  Created on: Mar 23, 2015
+ *      Author: adrianc
  */
 
 #ifndef MLXCFG_STATUS_H_

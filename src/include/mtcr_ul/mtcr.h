@@ -1,4 +1,5 @@
-/* Copyright (c) 2013 Mellanox Technologies Ltd.  All rights reserved.
+/*
+ * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -27,9 +28,6 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- *  Version: $Id$
- *
  */
 
 #ifndef MTCR_H
@@ -42,168 +40,14 @@ extern "C" {
 
 #include <sys/types.h>
 
-typedef enum MError {
-    ME_OK = 0,
-    ME_ERROR,
-    ME_BAD_PARAMS,
-    ME_CR_ERROR,
-    ME_NOT_IMPLEMENTED,
-    ME_SEM_LOCKED,
-    ME_MEM_ERROR,
-
-    ME_MAD_SEND_FAILED,
-    ME_UNKOWN_ACCESS_TYPE,
-    ME_UNSUPPORTED_DEVICE,
-    ME_REG_NOT_SUPPORTED,
-
-    ME_PCI_READ_ERROR,
-    ME_PCI_WRITE_ERROR,
-    ME_PCI_SPACE_NOT_SUPPORTED,
-    ME_PCI_IFC_TOUT,
-
-    // errors regarding REG_ACCESS
-    ME_REG_ACCESS_OK = 0,
-    ME_REG_ACCESS_BAD_STATUS_ERR = 0x100,
-    ME_REG_ACCESS_BAD_METHOD,
-    ME_REG_ACCESS_NOT_SUPPORTED,
-    ME_REG_ACCESS_DEV_BUSY,
-    ME_REG_ACCESS_VER_NOT_SUPP,
-    ME_REG_ACCESS_UNKNOWN_TLV,
-    ME_REG_ACCESS_REG_NOT_SUPP,
-    ME_REG_ACCESS_CLASS_NOT_SUPP,
-    ME_REG_ACCESS_METHOD_NOT_SUPP,
-    ME_REG_ACCESS_BAD_PARAM,
-    ME_REG_ACCESS_RES_NOT_AVLBL,
-    ME_REG_ACCESS_MSG_RECPT_ACK,
-    ME_REG_ACCESS_UNKNOWN_ERR,
-    ME_REG_ACCESS_SIZE_EXCCEEDS_LIMIT,
-    ME_REG_ACCESS_CONF_CORRUPT,
-    ME_REG_ACCESS_LEN_TOO_SMALL,
-    ME_REG_ACCESS_BAD_CONFIG,
-    ME_REG_ACCESS_ERASE_EXEEDED,
-    ME_REG_ACCESS_INTERNAL_ERROR,
-
-    // errors regarding ICMD
-    ME_ICMD_STATUS_CR_FAIL = 0x200,       // cr-space access failure
-    ME_ICMD_INVALID_OPCODE,
-    ME_ICMD_INVALID_CMD,
-    ME_ICMD_OPERATIONAL_ERROR,
-    ME_ICMD_BAD_PARAM,
-    ME_ICMD_BUSY,
-    ME_ICMD_INIT_FAILED,
-    ME_ICMD_NOT_SUPPORTED,
-    ME_ICMD_STATUS_SEMAPHORE_TO,          // timed out while trying to take semaphore
-    ME_ICMD_STATUS_EXECUTE_TO,            // timed out while waiting for command to execute
-    ME_ICMD_STATUS_IFC_BUSY,
-    ME_ICMD_STATUS_ICMD_NOT_READY,
-    ME_ICMD_UNSUPPORTED_ICMD_VERSION,
-    ME_ICMD_UNKNOWN_STATUS,
-    ME_ICMD_ICM_NOT_AVAIL,
-    ME_ICMD_WRITE_PROTECT,
-    ME_ICMD_SIZE_EXCEEDS_LIMIT,
-
-    //errors regarding Tools CMDIF
-    ME_CMDIF_BUSY = 0x300,
-    ME_CMDIF_TOUT,
-    ME_CMDIF_BAD_STATUS,
-    ME_CMDIF_BAD_OP,
-    ME_CMDIF_NOT_SUPP,
-    ME_CMDIF_BAD_SYS,
-    ME_CMDIF_UNKN_TLV,
-    ME_CMDIF_RES_STATE,
-    ME_CMDIF_UNKN_STATUS,
-
-    //errors regarding MAD IF
-    ME_MAD_BUSY = 0x400,
-    ME_MAD_REDIRECT,
-    ME_MAD_BAD_VER,
-    ME_MAD_METHOD_NOT_SUPP,
-    ME_MAD_METHOD_ATTR_COMB_NOT_SUPP,
-    ME_MAD_BAD_DATA,
-    ME_MAD_GENERAL_ERR,
-
-    ME_LAST
-} MError;
-
-typedef enum Mdevs_t {
-    MDEVS_GAMLA     = 0x01, /*  Each device that actually is a Gamla */
-    MDEVS_I2CM      = 0x02, /*  Each device that can work as I2C master */
-    MDEVS_MEM       = 0x04, /*  Each device that is a memory driver (vtop) */
-    MDEVS_TAVOR_DDR = 0x08, /*  Each device that maps to DDR */
-    MDEVS_TAVOR_UAR = 0x10, /*  Each device that maps to UAR */
-    MDEVS_TAVOR_CR  = 0x20, /*  Each device that maps to CR */
-    MDEVS_IF        = 0x40, /*  Standard device  interface */
-    MDEVS_REM       = 0x80, /*  Remote devices */
-    MDEVS_PPC       = 0x100, /*  PPC devices */
-    MDEVS_DEV_I2C   = 0x200, /* Generic linux kernel i2c device */
-    MDEVS_IB        = 0x400, /* Cr access over IB Mads */
-    MDEVS_MLNX_OS   = 0x800, /* access by CmdIf in MlnxOS */
-    MDEVS_FWCTX		= 0x900, /*access by UEFI func/context */
-    MDEVS_TAVOR     = (MDEVS_TAVOR_DDR|MDEVS_TAVOR_UAR|MDEVS_TAVOR_CR),
-    MDEVS_ALL       = 0xffffffff
-} Mdevs;
-typedef struct mfile_t mfile;
-
-typedef enum {
-    MACCESS_REG_METHOD_GET = 1,
-    MACCESS_REG_METHOD_SET = 2
-} maccess_reg_method_t;
-
-typedef enum {
-    AS_ICMD = 3,
-    AS_CR_SPACE = 2,
-    AS_SEMAPHORE = 0xa
-} address_space_t;
-
-typedef struct dev_info_t
-{
-    Mdevs         type;
-    char          dev_name[512];
-
-    union {
-        struct {
-            u_int16_t domain;
-            u_int8_t  bus;
-            u_int8_t  dev;
-            u_int8_t  func;
-
-            u_int16_t dev_id;
-            u_int16_t vend_id;
-            u_int32_t class_id;
-            u_int16_t subsys_id;
-            u_int16_t subsys_vend_id;
-
-            char      cr_dev[512];
-            char      conf_dev[512];
-            char**    net_devs;      // Null terminated array
-            char**    ib_devs;       // Null terminated array
-        } pci;
-
-        struct {
-            u_int32_t TBD;
-        } usb;
-
-        struct {
-            u_int32_t TBD;
-        } ib;
-
-        struct {
-            u_int32_t TBD;
-        } remote;
-    };
-} dev_info;
-
-typedef enum {
-    RA_MFPA=0x9010,
-    RA_MFBA=0x9011,
-    RA_MFBE=0x9012,
-} reg_access_t;
+#include "mtcr_com_defs.h"
+#include "mtcr_mf.h"
 
 typedef enum mtcr_access_method {
-    MTCR_ACCESS_ERROR  = 0x0,
-    MTCR_ACCESS_MEMORY = 0x1,
-    MTCR_ACCESS_CONFIG = 0x2,
-    MTCR_ACCESS_INBAND = 0x3
+    MTCR_ACCESS_ERROR  = MST_ERROR,
+    MTCR_ACCESS_MEMORY = MST_PCI,
+    MTCR_ACCESS_CONFIG = MST_PCICONF,
+    MTCR_ACCESS_INBAND = MST_IB
 } mtcr_access_method_t;
 /*
  * Read 4 bytes, return number of succ. read bytes or -1 on failure
@@ -239,6 +83,15 @@ int mdevices(char *buf, int len, int mask);
  */
 dev_info* mdevices_info(int mask, int* len);
 
+/*
+ *  * Get list of MST (Mellanox Software Tools) devices info records.
+ *  * Return a dynamic allocated array of dev_info records.
+ *  * len will be updated to hold the array length
+ *  * Verbosity will decide whether to get all the Physical functions or not.
+ */
+
+dev_info* mdevices_info_v(int mask, int* len, int verbosity);
+
 void mdevice_info_destroy(dev_info* dev_info, int len);
 void mdevices_info_destroy(dev_info* dev_info, int len);
 
@@ -253,6 +106,8 @@ mfile *mopen(const char *name);
 mfile *mopend(const char *name, int type);
 
 mfile *mopen_fw_ctx(void* fw_cmd_context, void* fw_cmd_func, void* extra_data);
+
+mfile *mopen_adv(const char *name, MType mtype);
 
 /*
  * Close Mellanox driver
@@ -305,6 +160,8 @@ int mget_vsec_supp(mfile* mf);
 
 int mget_addr_space(mfile* mf);
 int mset_addr_space(mfile* mf, int space);
+
+int mclear_pci_semaphore(const char* name);
 
 #ifdef __cplusplus
 }

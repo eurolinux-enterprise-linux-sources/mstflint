@@ -62,9 +62,7 @@ bool FImage::open(const char *fname, bool read_only, bool advErr)
 {
 
 #ifndef UEFI_BUILD
-//#ifndef 1
     int                fsize;
-    int                r_cnt;
     FILE              *fh;
 
     (void)read_only;  // FImage can be opened only for read so we ignore compiler warnings
@@ -96,18 +94,9 @@ bool FImage::open(const char *fname, bool read_only, bool advErr)
                       fname);
     }
 
-    _buf = new u_int32_t[fsize/4];
-    if ((r_cnt = fread(_buf, 1, fsize, fh)) != fsize) {
-        fclose(fh);
-        if (r_cnt < 0) {
-            return errmsg("Read error on file \"%s\" - %s",fname, strerror(errno));
-        } else {
-            return errmsg("Read error on file \"%s\" - read only %d bytes (from %ld)",
-                          fname, r_cnt, (unsigned long)fsize);
-        }
-    }
-
+    _fname = fname;
     _len = fsize;
+    _isFile = true;
     fclose(fh);
     return true;
 #else
@@ -117,8 +106,8 @@ bool FImage::open(const char *fname, bool read_only, bool advErr)
 
 bool FImage::open(u_int32_t *buf, u_int32_t len, bool advErr)
 {
-    _buf = new u_int32_t[len / 4];
-    memcpy(_buf, buf, len);
+    _buf.resize(len);
+    memcpy(_buf.data(), buf, len);
     _len = len;
     _advErrors = advErr;
     return true;
@@ -126,9 +115,46 @@ bool FImage::open(u_int32_t *buf, u_int32_t len, bool advErr)
 ////////////////////////////////////////////////////////////////////////
 void FImage::close()
 {
-    delete [] _buf;
-    _buf = 0;
+    _fname = (const char*)NULL;
+    _buf.resize(0);
+    _len = 0;
+    _isFile = false;
 } // FImage::close
+
+/////////////////////////////////////////////////////////////////////////
+u_int32_t* FImage::getBuf()
+{
+    if (_isFile) {
+        // Read the entire file on demand
+        FILE* fh = fopen(_fname, "rb");
+        int r_cnt;
+        u_int32_t* retBuf;
+        if (!fh) {
+            errmsg("Can not open file \"%s\" - %s", _fname, strerror(errno));
+            return (u_int32_t*)NULL;
+        }
+        _buf.resize(_len);
+        if ((r_cnt = fread(_buf.data(), 1, _len, fh)) != (int)_len) {
+            if (r_cnt < 0) {
+                errmsg("Read error on file \"%s\" - %s",_fname, strerror(errno));
+                retBuf = (u_int32_t*)NULL;
+                goto cleanup;
+            } else {
+                errmsg("Read error on file \"%s\" - read only %d bytes (from %ld)",
+                        _fname, r_cnt, (unsigned long)_len);
+                retBuf = (u_int32_t*)NULL;
+                goto cleanup;
+            }
+        }
+        _isFile = false;
+        retBuf = (u_int32_t*)_buf.data();
+    cleanup:
+        fclose(fh);
+        return retBuf;
+    } else {
+        return (u_int32_t*)_buf.data();
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////
 bool FImage::read(u_int32_t addr, u_int32_t *data)
@@ -137,16 +163,16 @@ bool FImage::read(u_int32_t addr, u_int32_t *data)
 } // FImage::read
 
 ////////////////////////////////////////////////////////////////////////
-bool FImage::read(u_int32_t addr, void *data, int len, bool, const char*)
+bool FImage::read(u_int32_t addr, void *data, int len, bool verbose, const char* message)
 {
+    (void)verbose;
+    (void) message;
 
-    if (addr & 0x3) {
-        return errmsg("Address should be 4-bytes aligned.");
+    if (!readWriteCommCheck(addr, len)) {
+        return false;
     }
-    if (len & 0x3) {
-        return errmsg("Length should be 4-bytes aligned.");
-    }
-    if (!_buf) {
+
+    if (!_isFile && _buf.size() == 0) {
         return errmsg("read() when not opened");
     }
 
@@ -164,10 +190,22 @@ bool FImage::read(u_int32_t addr, void *data, int len, bool, const char*)
     align.Init (addr, len);
     while (align.GetNextChunk(chunk_addr, chunk_size)) {
         u_int32_t phys_addr = cont2phys(chunk_addr);
-
-        memcpy((u_int8_t*)data + (chunk_addr - addr),
-               (u_int8_t*)_buf +  phys_addr,
+        if (_isFile) {
+            FILE* fh = fopen(_fname, "rb");
+            if (!fh) {
+                return errmsg("Can not open file \"%s\" - %s", _fname, strerror(errno));
+            }
+            fseek(fh, phys_addr, SEEK_SET);
+            if (fread((u_int8_t*)data + (chunk_addr - addr), chunk_size, 1, fh) != 1) {
+                fclose(fh);
+                return errmsg("Failed to read from FW file, offset: %#x - %s", phys_addr, strerror(errno));
+            }
+            fclose(fh);
+        } else {
+            memcpy((u_int8_t*)data + (chunk_addr - addr),
+               _buf.data() +  phys_addr,
                chunk_size);
+        }
     }
 
     return true;
@@ -199,7 +237,87 @@ u_int32_t FImage::get_sector_size()
     }
 }
 
+bool FImage::readFileGetBuffer(std::vector<u_int8_t>& dataBuf)
+{
+    int fileSize;
+    FILE* fh;
 
+    if (!getFileSize(fileSize)) {
+        return false;
+    }
+    dataBuf.resize(fileSize);
+    if ((fh = fopen(_fname, "rb")) == NULL) {
+        return errmsg("Can not open %s: %s\n",_fname, strerror(errno));
+    }
+
+    if (fread(dataBuf.data(), 1, fileSize, fh) != (size_t)fileSize) {
+        dataBuf.resize(0);
+        fclose(fh);
+        return errmsg("Failed to read entire file %s: %s\n", _fname, strerror(errno));
+    }
+    fclose(fh);
+    return true;
+}
+bool FImage::writeEntireFile(std::vector<u_int8_t>& fileContent)
+{
+    FILE* fh;
+    if ((fh = fopen(_fname, "wb")) == (FILE*)NULL) {
+        return errmsg("Can not open %s: %s\n",_fname, strerror(errno));
+    }
+
+    if (fwrite(fileContent.data(), 1, fileContent.size(), fh) != fileContent.size()) {
+        fclose(fh);
+        return errmsg("Failed to write entire file %s: %s\n", _fname, strerror(errno));
+    }
+    fclose(fh);
+    return true;
+}
+
+bool FImage::getFileSize(int& fileSize)
+{
+    FILE* fh;
+    if ((fh = fopen(_fname, "rb")) == NULL) {
+        return errmsg("Can not open %s: %s\n",_fname, strerror(errno));
+    }
+
+    if (fseek(fh, 0, SEEK_END) < 0) {
+        fclose(fh);
+        return errmsg("Failed to get size of the file \"%s\": %s\n", _fname, strerror(errno));
+    }
+    fileSize = ftell(fh);
+    fclose(fh);
+    if (fileSize < 0) {
+        return errmsg("Failed to get size of the file \"%s\": %s\n", _fname, strerror(errno));
+    }
+    return true;
+}
+
+bool FImage::write(u_int32_t addr, void* data, int cnt)
+{
+    if ( !_isFile ) {
+        return errmsg("Cannot perform write to file. no file specified.");
+    }
+
+    if (!readWriteCommCheck(addr, 0)) {
+        return false;
+    }
+    // read entire file
+    std::vector<u_int8_t> dataVec;
+    if (!readFileGetBuffer(dataVec)) {
+        return false;
+    }
+    // modify content (extend if needed)
+    if ((dataVec.size() < addr + cnt) ) {
+        dataVec.resize(addr + cnt);
+    }
+    memcpy(&dataVec[addr], data, cnt);
+    // re-write the file
+    if (!writeEntireFile(dataVec)) {
+        return false;
+    }
+    _len = dataVec.size();
+    return true;
+}
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -245,7 +363,7 @@ bool Flash::open_com_checks(const char *device, int rc, bool force_lock)
     }
 
 
-    if (_attr.hw_dev_id == 435 || _attr.hw_dev_id == SWITCHX_HW_ID) {
+    if (_attr.hw_dev_id == IS4_HW_ID || _attr.hw_dev_id == SWITCHX_HW_ID) {
         _port_num = 0;
     } else {
         _port_num = 2;
@@ -309,7 +427,7 @@ bool Flash::read(u_int32_t addr,
 
     u_int32_t phys_addr = cont2phys(addr);
     // printf("-D- read1: addr = %#x, phys_addr = %#x\n", addr, phys_addr);
-    // here we set a "silent" signal handler and deal with the recieved signal after the read
+    // here we set a "silent" signal handler and deal with the received signal after the read
     mft_signal_set_handling(1);
     rc = mf_read(_mfl, phys_addr, 4, (u_int8_t*)data);
     deal_with_signal();
@@ -327,11 +445,8 @@ bool Flash::read(u_int32_t addr,
 bool Flash::read(u_int32_t addr, void *data, int len, bool verbose, const char* message)
 {
     int rc;
-    if (addr & 0x3) {
-        return errmsg("Address should be 4-bytes aligned.");
-    }
-    if (len & 0x3) {
-        return errmsg("Length should be 4-bytes aligned.");
+    if (!readWriteCommCheck(addr, len)) {
+        return false;
     }
 
     // Much better perf for read in a single chunk. need to work on progress report though.
@@ -482,7 +597,7 @@ bool Flash::write  (u_int32_t addr,
     Aligner align(first_set);
     align.Init (addr, cnt);
     while (align.GetNextChunk(chunk_addr, chunk_size)) {
-        // Write / Erase in sector_size alligned chunks
+        // Write / Erase in sector_size aligned chunks
         int rc;
 
         if (!noerase) {
@@ -712,7 +827,7 @@ const char* Flash::getFlashType() {
     } else if (!strcmp(param_in, second_op)) {\
         out = 0;\
     } else {\
-        return errmsg("bad argument (%s) it can be "first_op" or " second_op"", param_in);\
+        return errmsg("bad argument (%s) it can be " first_op " or " second_op "", param_in);\
     }\
 }
 bool  Flash::set_attr(char *param_name, char *param_val_str)
@@ -724,11 +839,11 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
         u_int8_t quad_en_val;
         quad_en_val = strtoul(param_val_str, &endp, 0);
         if (*endp != '\0' || quad_en_val > 1) {
-            return errmsg("Bad "QUAD_EN_PARAM" value (%s), it can be 0 or 1\n", param_val_str);
+            return errmsg("Bad " QUAD_EN_PARAM " value (%s), it can be 0 or 1\n", param_val_str);
         }
         rc = mf_set_quad_en(_mfl, quad_en_val);
         if (rc != MFE_OK) {
-            return errmsg("Setting "QUAD_EN_PARAM" failed: (%s)", mf_err2str(rc));
+            return errmsg("Setting " QUAD_EN_PARAM " failed: (%s)", mf_err2str(rc));
         }
     } else if (!strcmp(param_name, DUMMY_CYCLES_PARAM)) {
         char* endp;
@@ -736,11 +851,11 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
         dummy_cycles_val = strtoul(param_val_str, &endp, 0);
         if (*endp != '\0' || dummy_cycles_val < 1 || dummy_cycles_val > 15) {
         	// value is actually [0.15] but val=0 and val=15 indicate default state (thus they are the same so no need for both values to be accepted)
-            return errmsg("Bad "DUMMY_CYCLES_PARAM" value (%s), it can be [1..15]\n", param_val_str);
+            return errmsg("Bad " DUMMY_CYCLES_PARAM " value (%s), it can be [1..15]\n", param_val_str);
         }
         rc = mf_set_dummy_cycles(_mfl, dummy_cycles_val);
         if (rc != MFE_OK) {
-            return errmsg("Setting "DUMMY_CYCLES_PARAM" failed: (%s)", mf_err2str(rc));
+            return errmsg("Setting " DUMMY_CYCLES_PARAM " failed: (%s)", mf_err2str(rc));
         }
     } else if (strstr(param_name, FLASH_NAME) == param_name) {
         char *flash_param, *param_str, *endp, *bank_num_str;
@@ -762,7 +877,7 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
                 num_str = strtok((char*)NULL, "-");
                 sec = strtok((char*)NULL, "");
                 if (tb == NULL || num_str == NULL || sec == NULL) {
-                    return errmsg("missing parameters for setting the "WRITE_PROTECT" attribute, see help for more info.");
+                    return errmsg("missing parameters for setting the " WRITE_PROTECT " attribute, see help for more info.");
                 }
                 GET_IN_PARAM(tb, protect_info.is_bottom, WP_BOTTOM_STR, WP_TOP_STR);
                 GET_IN_PARAM(sec, protect_info.is_subsector, WP_SUBSEC_STR, WP_SEC_STR);
@@ -774,7 +889,7 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
            }
             rc = mf_set_write_protect(_mfl, bank_num, &protect_info);
             if (rc != MFE_OK) {
-                return errmsg("Setting "WRITE_PROTECT" failed: (%s)", mf_err2str(rc));
+                return errmsg("Setting " WRITE_PROTECT " failed: (%s)", mf_err2str(rc));
             }
         } else {
             return errmsg("Unknown attribute %s.%s", flash_param, param_str);
@@ -814,7 +929,7 @@ void Flash::deal_with_signal()
     int sig;
     sig = mft_signal_is_fired();
     if (sig) {
-        // reset recieved signal
+        // reset received signal
         mft_signal_set_fired(0);
         // retore prev handler
         mft_signal_set_handling(0);

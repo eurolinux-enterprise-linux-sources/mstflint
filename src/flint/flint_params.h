@@ -78,7 +78,8 @@ typedef enum {
     SC_Fix_Img,
     SC_Qrom,
     SC_Check_Sum,
-    SC_Time_Stamp
+    SC_Time_Stamp,
+    SC_Cache_Image
 } sub_cmd_t;
 
 class FlintParams {
@@ -132,6 +133,8 @@ public:
     vector<string> cmd_params;
     string fullCmd;
     bool use_dev_img_info;
+    bool skip_ci_req;
+    bool use_dev_rom;
 };
 
 #endif

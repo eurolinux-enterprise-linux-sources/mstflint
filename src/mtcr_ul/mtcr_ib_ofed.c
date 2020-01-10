@@ -59,12 +59,15 @@
 
 #ifdef MST_UL
 #include <errno.h>
-#include "mtcr.h"
 #include "mtcr_int_defs.h"
 #endif
 
 #include "mtcr_ib.h"
-#include <mtcr.h>
+
+#ifndef __WIN__
+#include "mtcr_mf.h"
+#include "mtcr_com_defs.h"
+#endif
 
 #include <infiniband/mad.h>
 
@@ -779,7 +782,7 @@ mib_close(mfile *mf)
     return 0;
 }
 
-#define CHECK_ALLIGN(length) { \
+#define CHECK_ALIGN(length) { \
     if (length % 4) {                                       \
         IBERROR(("Size must be 4 aligned, got %d", length));\
         return -1;                                          \
@@ -854,7 +857,7 @@ MTCR_API int mib_readblock(mfile *mf, unsigned int offset, u_int32_t *data, int 
     }
     ibvs_mad* h = (ibvs_mad*)(mf->ctx);
 
-    CHECK_ALLIGN(length);
+    CHECK_ALIGN(length);
 
     if (ibvsmad_craccess_rw(h, offset, IB_MAD_METHOD_GET, (length / 4), data) == ~0ull) {
         IBERROR(("cr access read to %s failed", h->portid2str(&h->portid)));
@@ -871,7 +874,7 @@ MTCR_API int mib_writeblock(mfile *mf, unsigned int offset, u_int32_t *data, int
     }
     ibvs_mad* h = (ibvs_mad*)(mf->ctx);
 
-    CHECK_ALLIGN(length);
+    CHECK_ALIGN(length);
 
     if (ibvsmad_craccess_rw(h, offset, IB_MAD_METHOD_SET, (length / 4), data) == ~0ull) {
         IBERROR(("cr access read to %s failed", h->portid2str(&h->portid)));

@@ -28,6 +28,15 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
+ * End of legal section ......................................................
+ *
+ *  toos_dev_types.h - Defines an enum value for all mellanox chips in order to
+ *                     have a uniform IDs for all toos.
+ *
+ *  Version: $Id$
+ *
+ *  Author: Wasim Abo Moch (wasim@mellanox.co.il)
  */
 
 #ifndef TOOLS_DEV_TYPE_H
@@ -55,7 +64,7 @@ enum dm_dev_id
     DeviceInfiniScaleIII,   // UnSupported
     DeviceInfiniHostIIILx,  // UnSupported
     DeviceConnectX,         // UnSupported
-    DeviceConnectX2,
+    DeviceConnectX2,       
     DeviceInfiniScaleIV,
     DeviceBridgeX,          // UnSupported
     DeviceSwitchX,
@@ -67,9 +76,15 @@ enum dm_dev_id
     DeviceConnectX4,
     DeviceConnectX4LX,
     DeviceConnectX5,
-    DeviceFPGA,
+    DeviceFPGA,             // UnSupported
     DeviceSwitchIB2,
     DeviceFPGANewton,
+    DeviceCable,
+    DeviceCableQSFP,
+    DeviceCableQSFPaging,
+    DeviceCableSFP,
+    DeviceCableSFP51,
+    DeviceCableSFP51Paging,
     DeviceDummy,
 
     DeviceEndMarker           // Dummy Device - Marker for indicating end of devices when iterating
@@ -125,6 +140,11 @@ int dm_dev_is_switch(dm_dev_id_t type);
 int dm_dev_is_bridge(dm_dev_id_t type);
 
 /**
+ * A predicate returning if the device is a Cable
+ */
+int dm_dev_is_cable(dm_dev_id_t type);
+
+/**
  * Returns the max num of ports or -1 on error
  */
 int dm_get_hw_ports_num(dm_dev_id_t type);
@@ -144,6 +164,11 @@ u_int32_t dm_get_hw_rev_id(dm_dev_id_t type);
  * A predicate returning if the device supports Function Per Port
  */
 int dm_is_fpp_supported(dm_dev_id_t type);
+
+/*
+ * A predicate returning if the device is in LiveFish mode
+ */
+int dm_is_livefish_mode(mfile* mf);
 
 #ifdef __cplusplus
 }       /* end of 'extern "C"' */

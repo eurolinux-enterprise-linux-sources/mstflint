@@ -61,6 +61,8 @@ const char* reg_access_err2str(reg_access_status_t status);
 reg_access_status_t reg_access_mfba (mfile* mf, reg_access_method_t method, struct register_access_mfba* mfba);
 reg_access_status_t reg_access_mfbe (mfile* mf, reg_access_method_t method, struct register_access_mfbe* mfbe);
 reg_access_status_t reg_access_mfpa (mfile* mf, reg_access_method_t method, struct register_access_mfpa* mfpa);
+reg_access_status_t reg_access_mfpa_new(mfile* mf, reg_access_method_t method, struct tools_open_mfpa* mfpa);
+reg_access_status_t reg_access_mfmc (mfile* mf, reg_access_method_t method, struct tools_open_mfmc* mfmc);
 reg_access_status_t reg_access_mnva (mfile* mf, reg_access_method_t method, struct tools_open_mnva* mnva);
 reg_access_status_t reg_access_mnvi (mfile* mf, reg_access_method_t method, struct tools_open_mnvi* mnvi);
 reg_access_status_t reg_access_mnvia (mfile* mf, reg_access_method_t method, struct tools_open_mnvia* mnvia);
@@ -73,6 +75,7 @@ reg_access_status_t reg_access_nvia (mfile* mf, reg_access_method_t method, stru
 reg_access_status_t reg_access_nvqc (mfile* mf, reg_access_method_t method, struct tools_open_nvqc* nvqc);
 reg_access_status_t reg_access_nvqgc (mfile* mf, reg_access_method_t method, struct tools_open_nvqgc* nvqgc);
 reg_access_status_t reg_access_mvts (mfile* mf, reg_access_method_t method, struct tools_open_mvts* mvts);
+reg_access_status_t reg_access_mnvgn (mfile* mf, reg_access_method_t method, struct tools_open_mnvgn* mnvgn, int *status);
 
 #ifdef __cplusplus
 }

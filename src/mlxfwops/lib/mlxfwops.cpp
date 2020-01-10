@@ -68,6 +68,13 @@ MLXFWOP_API int MLXFWOPCALL mlxfw_open_buffer(mlxfwops_t** mlxfwops_p, void* buf
     return mlxfw_open_int(mlxfwops_p, buffer, &size, psid, FHT_FW_BUFF, (char*)NULL, 0);
 }
 
+#ifdef CABLES_SUPP
+MLXFWOP_API int MLXFWOPCALL mlxfw_open_cable(mlxfwops_t** mlxfwops_p, char *handle_name, int port)
+{
+    return mlxfw_open_int(mlxfwops_p, handle_name, &port, (char*)NULL, FHT_CABLE_DEV, (char*)NULL, 0);
+}
+#endif
+
 #ifdef UEFI_BUILD
 
 MLXFWOP_API int MLXFWOPCALL mlxfw_open_uefi(mlxfwops_t** mlxfwops_p, uefi_Dev_t* dev, f_fw_cmd fw_cmd_func, uefi_dev_info_t* dev_info)
@@ -98,7 +105,7 @@ MLXFWOP_API const char* MLXFWOPCALL mlxfw_err2str(int err)
         return "Memory allocation Error";
     case MLXFW_ERR_IN_STR:
         return "Error in String";
-    case MLXFW_PSID_MISSMATCH_ERR:
+    case MLXFW_PSID_MISMATCH_ERR:
         return "PSID Mismatch";
     case MLXFW_FLASH_WRITE_ERR:
         return "Flash write Failed";
@@ -120,11 +127,11 @@ MLXFWOP_API const char* MLXFWOPCALL mlxfw_err2str(int err)
         return "Image too large";
     case MLXFW_IMAGE_FORMAT_ERR:
         return "Incompatible image format";
-    case MLXFW_DEVICE_IMAGE_MISSMATCH_ERR:
+    case MLXFW_DEVICE_IMAGE_MISMATCH_ERR:
         return "FW image does not match device";
     case MLXFW_IMAGE_CORRUPTED_ERR:
         return "FW image corrupted";
-    case MLXFW_FS_INFO_MISSMATCH_ERR:
+    case MLXFW_FS_INFO_MISMATCH_ERR:
         return "Failsafe information mismatch";
     case MLXFW_DEV_ID_ERR:
         return "Unsupported device ID";

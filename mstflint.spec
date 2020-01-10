@@ -1,11 +1,13 @@
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	4.3.0
-Release:	1.49.g9b9af70.1%{?dist}
+Version:	4.6.0
+Release:	2%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-Source:		https://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.49.g9b9af70.tar.gz
-Url:		http://www.openfabrics.org
+Source: 	https://github.com/Mellanox/%{name}/releases/download/v%{version}-1/%{name}-%{version}.tar.gz
+Patch1: 	0001-Extend-buffer-for-a-few-arrays.patch
+Patch2: 	fix-issues-reported-by-lexgrog.patch
+Url:		https://github.com/Mellanox/mstflint
 BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel
 Obsoletes:	openib-mstflint <= 1.4 openib-tvflash <= 0.9.2 tvflash <= 0.9.0
 ExcludeArch:	s390 s390x
@@ -16,6 +18,8 @@ It also provides access to the relevant source code.
 
 %prep
 %setup -q
+%patch1 -p1
+%patch2 -p1
 find . -type f -iname '*.[ch]' -exec chmod a-x '{}' ';'
 find . -type f -iname '*.cpp' -exec chmod a-x '{}' ';'
 
@@ -29,14 +33,25 @@ export CXXFLAGS="$RPM_OPT_FLAGS -std=gnu++98 -Wno-c++11-compat"
 make DESTDIR=%{buildroot} install
 # Remove the devel files that we don't ship
 rm -fr %{buildroot}%{_includedir}
-rm -fr %{buildroot}%{_datadir}
-rm -fr %{buildroot}%{_libdir}/*.a
+rm -fr %{buildroot}%{_libdir}
 
 %files
 %doc README
 %_bindir/*
 
+%{_datadir}/mstflint
+%{_mandir}/man1/*
+
 %changelog
+* Tue Mar  7 2017 Honggang Li <honli@redhat.com> - 4.6.0-2
+- Fix manpage issues reported by lexgrog.
+- Resolves: bz948474
+
+* Mon Feb 27 2017 Honggang Li <honli@redhat.com> - 4.6.0-1
+- Rebase to latest upstream from github.
+- Add man pages.
+- Resolves: bz948474, bz1416697
+
 * Wed Apr 20 2016 Honggang Li <honli@redhat.com> - 4.3.0-1.49.g9b9af70.1
 - Rebase to latest upstream version 4.3.0-1.49.g9b9af70.
 - Spec file cleanup.

@@ -110,6 +110,7 @@ SubCmdMetaData::SubCmdMetaData() {
     _sCmds.push_back(new SubCmd("", "fi", SC_Fix_Img));
     _sCmds.push_back(new SubCmd("cs", "checksum", SC_Check_Sum));
     _sCmds.push_back(new SubCmd("ts", "timestamp", SC_Time_Stamp));
+    _sCmds.push_back(new SubCmd("ci", "cache_image", SC_Cache_Image));
 }
 
 SubCmdMetaData::~SubCmdMetaData() {
@@ -184,6 +185,8 @@ FlagMetaData::FlagMetaData() {
     _flags.push_back(new Flag("", "no_devid_check", 0));
     _flags.push_back(new Flag("", "use_fw", 0));
     _flags.push_back(new Flag("", "use_dev_img_info", 0));
+    _flags.push_back(new Flag("", "skip_ci_req", 0));
+    _flags.push_back(new Flag("", "use_dev_rom", 0));
 }
 
 FlagMetaData::~FlagMetaData() {
@@ -427,7 +430,7 @@ void Flint::initCmdParser() {
                 "<GUIDS...>",
                 "4 GUIDs must be specified here.\n"
                 "The specified GUIDs are assigned\n"
-                "to the following fields, repectively:\n"
+                "to the following fields, respectively:\n"
                 "node, port1, port2 and system image GUID.\n\n"
                 "Note: port2 guid must be specified even for a\n"
                 "single port HCA - The HCA ignores this value.\n"
@@ -449,7 +452,7 @@ void Flint::initCmdParser() {
                 "<MACs...>",
                 "2 MACs must be specified here.\n"
                 "The specified MACs are assigned\n"
-                "to port1, port2, repectively.\n"
+                "to port1, port2, respectively.\n"
                 "Commands affected: burn, sg\n\n"
                 "Note: -mac/-macs flags are applicable only for Mellanox\n"
                 "\tTechnologies ethernet products.");
@@ -552,6 +555,12 @@ void Flint::initCmdParser() {
                 "Do not save the ROM which exists in the device.\n"
                 "Commands affected: burn");
 
+    AddOptions("use_dev_rom",
+               ' ',
+                "",
+                "Save the ROM which exists in the device.\n"
+                "Commands affected: burn");
+
     AddOptions("ignore_dev_data",
                ' ',
                 "",
@@ -611,6 +620,11 @@ void Flint::initCmdParser() {
                ' ',
                 "",
                 "ignore device_id checks", true);
+
+    AddOptions("skip_ci_req",
+               ' ',
+                "",
+                "skip sending cache image request to driver(windows)", true);
 
     AddOptions("ocr",
                ' ',
@@ -693,6 +707,9 @@ ParseStatus Flint::HandleOption(string name, string value)
     }
     else if (name == "no_devid_check") {
             _flintParams.no_devid_check = true;
+    }
+    else if (name == "skip_ci_req") {
+            _flintParams.skip_ci_req = true;
     }
     else if (name == "guid") {
         _flintParams.guid_specified = true;
@@ -786,6 +803,8 @@ ParseStatus Flint::HandleOption(string name, string value)
         _flintParams.use_image_guids = true;
     } else if (name == "use_image_rom") {
         _flintParams.use_image_rom = true;
+    } else if (name == "use_dev_rom") {
+        _flintParams.use_dev_rom = true;
     } else if (name == "ignore_dev_data") {
         _flintParams.ignore_dev_data = true;
     } else if (name == "dual_image") {

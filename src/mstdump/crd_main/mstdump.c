@@ -38,15 +38,25 @@
 
 #define CAUSE_FLAG "--cause"
 #define MAX_DEV_LEN 512
+
+#ifndef MSTDUMP_NAME
+#define MSTDUMP_NAME "mstdump"
+#endif
+
+#ifndef DEV_EXAMPLE
+#define DEV_EXAMPLE "/dev/mst/mt4099_pci_cr0"
+#endif
+
+
 // string explaining the cmd-line structure
-char correct_cmdline[] = "   Mellanox mstdump utility, dumps device internal configuration data\n\
-   Usage: mstdump [-full] <device> [i2c-slave] [-v[ersion] [-h[elp]]]\n\n\
+char correct_cmdline[] = "   Mellanox "MSTDUMP_NAME" utility, dumps device internal configuration data\n\
+   Usage: "MSTDUMP_NAME" [-full] <device> [i2c-slave] [-v[ersion] [-h[elp]]]\n\n\
    -full              :  Dump more expanded list of addresses\n\
                          Note : be careful when using this flag, None safe addresses might be read.\n\
    -v                 :  Display version info\n\
    -h                 :  Print this help message\n\
    Example :\n\
-            mstdump /dev/mst/mt4099_pci_cr0\n";
+            "MSTDUMP_NAME" "DEV_EXAMPLE"\n";
 
 
 void print_dword(crd_dword_t *dword) {
@@ -66,7 +76,7 @@ int main(int argc, char* argv[]) {
     char device[MAX_DEV_LEN] = {0};
 #if defined(linux)
     if (geteuid() != 0) {
-        printf("Permission denied, you need to run this tool as root\n");
+        printf("-E- Permission denied: User is not root\n");
         return 1;
     }
 #endif
@@ -79,7 +89,7 @@ int main(int argc, char* argv[]) {
     for (i = 1; i < argc; ++i) {
         /* check position-independent flags */
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
-            fprintf(stderr, "%s", correct_cmdline);
+            fprintf(stdout, "%s", correct_cmdline);
             exit (0);
         }
         else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "-version")) {
@@ -109,7 +119,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     strncpy(device, argv[i], MAX_DEV_LEN -1);
-    if (!( mf = mopen((const char *)device))) {
+    if (!( mf = mopen_adv((const char *)device, (MType)(MST_DEFAULT | MST_CABLE)))) {
         fprintf(stderr, "Unable to open device %s. Exiting.\n", argv[i]);
         return 1;
     }

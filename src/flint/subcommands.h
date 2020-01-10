@@ -141,6 +141,7 @@ protected:
     void reportErr(bool shouldPrint, const char *format, ...);
 
     bool writeToFile(string filePath, const std::vector<u_int8_t>& buff);
+    FlintStatus writeImageToFile(const char *file_name, u_int8_t *data, u_int32_t length);
 
     bool dumpFile(const char* confFile, std::vector<u_int8_t>& data, const char *sectionName);
     bool unzipDataFile (std::vector<u_int8_t> data, std::vector<u_int8_t> &newData, const char *sectionName);
@@ -180,7 +181,7 @@ private:
     bool checkFwVersion();
     bool checkPSID();
     void updateBurnParams();
-    void dealWithExpRom();
+    bool dealWithExpRom();
     bool checkMatchingExpRomDevId(const fw_info_t& info);
     bool dealWithGuids();
     bool dealWithVSD();
@@ -324,8 +325,6 @@ public:
 };
 class RiSubCommand : public SubCommand
 {
-private:
-    FlintStatus writeImageToFile(const char *file_name, u_int8_t *data, u_int32_t length);
 public:
     RiSubCommand();
     ~RiSubCommand();
@@ -534,6 +533,14 @@ private:
     FwOperations* _ops;
     struct tools_open_ts_entry _userTsEntry;
     struct tools_open_fw_version _userFwVer;
+};
+
+class CacheImageSubCommand : public SubCommand
+{
+public:
+    CacheImageSubCommand();
+    ~CacheImageSubCommand();
+    FlintStatus executeCommand();
 };
 
 #endif

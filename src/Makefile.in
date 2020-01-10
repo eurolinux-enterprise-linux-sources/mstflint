@@ -113,9 +113,9 @@ subdir = .
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
 	$(srcdir)/config.h.in $(srcdir)/mstflint.spec.in COPYING \
-	README config/config.guess config/config.sub config/install-sh \
-	config/missing config/ltmain.sh \
-	$(top_srcdir)/config/config.guess \
+	README config/ar-lib config/config.guess config/config.sub \
+	config/install-sh config/missing config/ltmain.sh \
+	$(top_srcdir)/config/ar-lib $(top_srcdir)/config/config.guess \
 	$(top_srcdir)/config/config.sub \
 	$(top_srcdir)/config/install-sh $(top_srcdir)/config/ltmain.sh \
 	$(top_srcdir)/config/missing
@@ -279,6 +279,7 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DISABLE_XML2 = @DISABLE_XML2@
 DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
@@ -328,6 +329,7 @@ SHELL = @SHELL@
 STRIP = @STRIP@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
 VERSION = @VERSION@
+XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -381,8 +383,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SUBDIRS = mft_utils $(TOOLS_CRYPTO) tools_layouts mtcr_ul reg_access cmdif dev_mgt tools_res_mgmt mflash mlxconfig mlxfwops cmdparser flint small_utils mstdump
-man_MANS = man/mstflint.1
+SUBDIRS = common mft_utils ext_libs $(TOOLS_CRYPTO) tools_layouts mtcr_ul reg_access cmdif dev_mgt tools_res_mgmt mflash mlxconfig mlxfwops cmdparser flint small_utils mstdump
+man_MANS = man/mstflint.1 man/mstconfig.1 man/mstmcra.1 man/mstmread.1 man/mstmwrite.1 man/mstmtserver.1 man/mstregdump.1 man/mstvpd.1
 EXTRA_DIST = \
 	mstflint.spec \
 	small_utils/hca_self_test.ofed \

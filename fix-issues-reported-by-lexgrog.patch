@@ -1,0 +1,84 @@
+diff --git a/man/mstconfig.1 b/man/mstconfig.1
+index d172e66..5318716 100644
+--- a/man/mstconfig.1
++++ b/man/mstconfig.1
+@@ -1,6 +1,6 @@
+ .TH MSTCONFIG "1" "4.6.0"  "10 January 2017" ""
+ .SH NAME
+-mstconfig
++mstconfig \- Sets or queries non-volatile configurable options for Mellanox HCAs
+ .IP
+ .SH SYNOPSIS:
+ .IP
+diff --git a/man/mstmcra.1 b/man/mstmcra.1
+index 935f39e..a7be945 100644
+--- a/man/mstmcra.1
++++ b/man/mstmcra.1
+@@ -1,6 +1,6 @@
+ .TH MSTMCRA "1" "4.6.0" ""
+ .SH NAME
+-mstmcra
++mstmcra \- Mellanox Configuration Registers Access tool
+ .IP
+ .SH SYNOPSIS:
+ .IP
+diff --git a/man/mstmread.1 b/man/mstmread.1
+index d47feb2..985a159 100644
+--- a/man/mstmread.1
++++ b/man/mstmread.1
+@@ -1,6 +1,6 @@
+ .TH MSTMREAD "1" "4.6.0" ""
+ .SH NAME
+-mstmread
++mstmread \- Mellanox Read Configuration Register Tool
+ .IP
+ .SH SYNOPSIS:
+ .IP
+diff --git a/man/mstmtserver.1 b/man/mstmtserver.1
+index 22ba224..1762241 100644
+--- a/man/mstmtserver.1
++++ b/man/mstmtserver.1
+@@ -1,6 +1,6 @@
+ .TH MSTMTSERVER "1" "4.6.0" ""
+ .SH NAME
+-mstmtserver
++mstmtserver \- Mellanox Software tools (mst) server (remote mtcr calls)
+ .IP
+ .SH SYNOPSIS:
+ .IP
+diff --git a/man/mstmwrite.1 b/man/mstmwrite.1
+index b3cc05a..b8dcbe9 100644
+--- a/man/mstmwrite.1
++++ b/man/mstmwrite.1
+@@ -1,6 +1,6 @@
+ .TH MSTMWRITE "1" "4.6.0" "" ""
+ .SH NAME
+-mstmwrite
++mstmwrite \- Mellanox Write Configuration Register Tool
+ .IP
+ .SH SYNOPSIS:
+ .IP
+diff --git a/man/mstregdump.1 b/man/mstregdump.1
+index 77a6e3c..f7db942 100644
+--- a/man/mstregdump.1
++++ b/man/mstregdump.1
+@@ -1,6 +1,6 @@
+ .TH MSTREGDUMP "1" "4.6.0" "" ""
+ .SH NAME
+-mstregdump
++mstregdump \- Dumps Mellanox device internal configuration data
+ .IP
+ .SH SYNOPSIS:
+ .IP
+diff --git a/man/mstvpd.1 b/man/mstvpd.1
+index 85ca8f4..9fb02e2 100644
+--- a/man/mstvpd.1
++++ b/man/mstvpd.1
+@@ -1,6 +1,6 @@
+ .TH MSTVPD "1" "4.6.0" "" ""
+ .SH NAME
+-mstvpd
++mstvpd \- Mellanox VPD read tool
+ .IP
+ .SH SYNOPSIS:
+ .IP
