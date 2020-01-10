@@ -31,10 +31,10 @@
  */
 
 /***
-         *** This file was generated at "2016-10-01 01:27:03"
-         *** by:
-         ***    > /mswg/release/eat_me/last_release/adabe_plugins/adb2c/adb2pack.py --input adb/register_access_open/register_access_open.adb --file-prefix register_access_open --prefix register_access_
-         ***/
+ *** This file was generated at "2016-02-23 00:12:07"
+ *** by:
+ ***    > /mswg/release/eat_me/last_release/adabe_plugins/adb2c/adb2pack.py --input adb/register_access_open/register_access_open.adb --file-prefix register_access_open --prefix register_access_
+ ***/
 #ifndef REGISTER_ACCESS_OPEN_LAYOUTS_H
 #define REGISTER_ACCESS_OPEN_LAYOUTS_H
 
@@ -48,63 +48,60 @@ extern "C" {
 struct register_access_mfba {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description - Flash Select */
-	/* 0x0.4 - 0x0.5 */
+	/* 0.4 - 0.5 */
 	 u_int8_t fs;
 	/* Description - Parallel */
-	/* 0x0.8 - 0x0.8 */
+	/* 0.8 - 0.8 */
 	 u_int8_t p;
 /*---------------- DWORD[1] (Offset 0x4) ----------------*/
 	/* Description - Transaction size */
-	/* 0x4.0 - 0x4.8 */
+	/* 4.0 - 4.8 */
 	 u_int16_t size;
 /*---------------- DWORD[2] (Offset 0x8) ----------------*/
 	/* Description - address in bytes */
-	/* 0x8.0 - 0x8.23 */
+	/* 8.0 - 8.23 */
 	 u_int32_t address;
 /*---------------- DWORD[3] (Offset 0xc) ----------------*/
 	/* Description - data */
-	/* 0xc.0 - 0x10c.31 */
+	/* 12.0 - 268.31 */
 	 u_int32_t data[64];
 };
 
 /* Description -   */
-/* Size in bytes - 32 */
+/* Size in bytes - 36 */
 struct register_access_mfpa {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description - Flash Select */
-	/* 0x0.4 - 0x0.5 */
+	/* 0.4 - 0.5 */
 	 u_int8_t fs;
 	/* Description - Parallel */
-	/* 0x0.8 - 0x0.8 */
+	/* 0.8 - 0.8 */
 	 u_int8_t p;
 /*---------------- DWORD[1] (Offset 0x4) ----------------*/
 	/* Description - address in bytes */
-	/* 0x4.0 - 0x4.23 */
+	/* 4.0 - 4.23 */
 	 u_int32_t boot_address;
 /*---------------- DWORD[4] (Offset 0x10) ----------------*/
 	/* Description - number of flash devices connected */
-	/* 0x10.0 - 0x10.3 */
+	/* 16.0 - 16.3 */
 	 u_int8_t flash_num;
-	/* Description - If set, MFBE register supports 64KB bulk erase operation. */
-	/* 0x10.29 - 0x10.29 */
+	/* Description -  */
+	/* 16.29 - 16.29 */
 	 u_int8_t bulk_64kb_erase_en;
-	/* Description - If set, MFBE register supports 32KB bulk erase operation. */
-	/* 0x10.30 - 0x10.30 */
-	 u_int8_t bulk_32kb_erase_en;
 /*---------------- DWORD[5] (Offset 0x14) ----------------*/
 	/* Description - Flash JEDEC ID */
-	/* 0x14.0 - 0x14.23 */
+	/* 20.0 - 20.23 */
 	 u_int32_t jedec_id;
 /*---------------- DWORD[6] (Offset 0x18) ----------------*/
 	/* Description - Flash sectore size */
-	/* 0x18.0 - 0x18.9 */
+	/* 24.0 - 24.9 */
 	 u_int16_t sector_size;
 	/* Description -  */
-	/* 0x18.16 - 0x18.23 */
+	/* 24.16 - 24.23 */
 	 u_int8_t block_allignment;
 /*---------------- DWORD[7] (Offset 0x1c) ----------------*/
 	/* Description - capability mask ;bit 0:Parallel flash Support;else:Reserved  */
-	/* 0x1c.0 - 0x20.31 */
+	/* 28.0 - 32.31 */
 	 u_int32_t capability_mask;
 };
 
@@ -113,20 +110,17 @@ struct register_access_mfpa {
 struct register_access_mfbe {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description - Flash Select */
-	/* 0x0.4 - 0x0.5 */
+	/* 0.4 - 0.5 */
 	 u_int8_t fs;
 	/* Description - Parallel */
-	/* 0x0.8 - 0x0.8 */
+	/* 0.8 - 0.8 */
 	 u_int8_t p;
-	/* Description - Erase a 64KB flash area in one bulk operation. */
-	/* 0x0.29 - 0x0.29 */
+	/* Description - erase 64KB flash area */
+	/* 0.29 - 0.29 */
 	 u_int8_t bulk_64kb_erase;
-	/* Description - Erase a 32KB flash area in one bulk operation. */
-	/* 0x0.30 - 0x0.30 */
-	 u_int8_t bulk_32kb_erase;
 /*---------------- DWORD[2] (Offset 0x8) ----------------*/
 	/* Description - address in bytes */
-	/* 0x8.0 - 0x8.23 */
+	/* 8.0 - 8.23 */
 	 u_int32_t address;
 };
 
@@ -135,13 +129,13 @@ struct register_access_mfbe {
 union register_access_register_access_open_Nodes {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description -  */
-	/* 0x0.0 - 0xc.31 */
+	/* 0.0 - 12.31 */
 	 struct register_access_mfbe mfbe;
 	/* Description -  */
-	/* 0x0.0 - 0x20.31 */
+	/* 0.0 - 36.31 */
 	 struct register_access_mfpa mfpa;
 	/* Description -  */
-	/* 0x0.0 - 0x10c.31 */
+	/* 0.0 - 268.31 */
 	 struct register_access_mfba mfba;
 };
 
@@ -159,7 +153,7 @@ void register_access_mfpa_pack(const struct register_access_mfpa *ptr_struct, u_
 void register_access_mfpa_unpack(struct register_access_mfpa *ptr_struct, const u_int8_t* ptr_buff);
 void register_access_mfpa_print(const struct register_access_mfpa *ptr_struct, FILE* file, int indent_level);
 int register_access_mfpa_size(void);
-#define REGISTER_ACCESS_MFPA_SIZE    (0x20)
+#define REGISTER_ACCESS_MFPA_SIZE    (0x24)
 void register_access_mfpa_dump(const struct register_access_mfpa *ptr_struct, FILE* file);
 /* mfbe */
 void register_access_mfbe_pack(const struct register_access_mfbe *ptr_struct, u_int8_t* ptr_buff);

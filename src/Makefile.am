@@ -30,9 +30,9 @@
 # SOFTWARE.
 #--
 
-SUBDIRS = common mft_utils ext_libs $(TOOLS_CRYPTO) tools_layouts mtcr_ul mtcr_py $(MAD_IFC) reg_access cmdif dev_mgt tools_res_mgmt mvpd mflash fw_comps_mgr mlxconfig mlxfwops cmdparser $(MLXFWUPDATE) flint small_utils mstdump 
+SUBDIRS = mft_utils $(TOOLS_CRYPTO) tools_layouts mtcr_ul reg_access cmdif dev_mgt tools_res_mgmt mflash mlxconfig mlxfwops cmdparser flint small_utils mstdump
 
-man_MANS = man/mstflint.1 man/mstconfig.1 man/mstmcra.1 man/mstmread.1 man/mstmwrite.1 man/mstmtserver.1 man/mstregdump.1 man/mstvpd.1
+man_MANS = man/mstflint.1
 
 EXTRA_DIST = \
 	mstflint.spec \

@@ -40,29 +40,17 @@ LAYOUTS_DIR = $(top_srcdir)/tools_layouts
 UTILS_LIB = $(top_srcdir)/mft_utils
 UEFI_COMMON_DIR = $(top_srcdir)/mlxfwops/uefi_c
 
-AM_CPPFLAGS = -I$(srcdir) -I$(MTCR_INC_DIR) -I$(MFLASH_DIR) -I$(top_srcdir)/ext_libs/json -I$(MINIXZ_DIR)\
-           -I$(COMMON_DIR) -I$(LAYOUTS_DIR) -I$(top_srcdir)/common -I$(UTILS_LIB) -I$(UEFI_COMMON_DIR)
+INCLUDES = -I$(srcdir) -I$(MTCR_INC_DIR) -I$(MFLASH_DIR) -I$(top_srcdir)/ext_libs/json -I$(MINIXZ_DIR)\
+           -I$(COMMON_DIR) -I $(LAYOUTS_DIR) -I$(top_srcdir)/common -I$(UTILS_LIB) -I$(UEFI_COMMON_DIR)
 
 MLXFWOPS_VERSION = 1
 
-AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe $(COMPILER_FPIC)
-
-if ENABLE_FWMGR
-AM_CPPFLAGS += -I$(top_srcdir)/libmfa
-else
-AM_CXXFLAGS += -DNO_MFA_SUPPORT
-endif
+AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe -DNO_MFA_SUPPORT
 
 if ENABLE_OPENSSL
 else
 AM_CXXFLAGS += -DNO_OPEN_SSL
 endif
-
-if ENABLE_CS
-else
-AM_CXXFLAGS += -DNO_CS_CMD
-endif
-
 
 noinst_LIBRARIES = libmlxfwops.a
 
@@ -71,9 +59,7 @@ libmlxfwops_a_SOURCES = flint_base.cpp \
                fw_ops.cpp \
                fs2_ops.cpp fs2_ops.h \
                fs3_ops.cpp fs3_ops.h \
-               fs4_ops.cpp fs4_ops.h \
                mlxfwops.cpp mlxfwops.h \
-               fsctrl_ops.cpp fsctrl_ops.h \
-               mlxfwops_com.h fw_ops.h flint_base.h flint_io.h \
+               mlxfwops_com.h mlxfwops.h fw_ops.h flint_base.h flint_io.h\
                aux_tlv_ops.h aux_tlv_ops.cpp
 

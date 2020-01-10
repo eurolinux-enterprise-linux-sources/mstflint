@@ -39,7 +39,9 @@
 #ifndef _MTCR_IB_H
 #define _MTCR_IB_H
 
- #include <mtcr.h>
+#ifdef __WIN__
+    #include <mtcr.h>
+#endif
 
 int mib_open(const char *name, mfile *mf, int mad_init);
 int mib_close(mfile *mf);

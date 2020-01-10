@@ -30,9 +30,7 @@
 # SOFTWARE.
 #--
 
-PYTHON_WRAPPER_SCRIPT = ../common/python_wrapper
-
-AM_CPPFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd
+INCLUDES= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common
 
 LDADD= ../mtcr_ul/libmtcr_ul.a -ldl
 
@@ -41,25 +39,16 @@ bin_PROGRAMS = mstmread \
 					mstmcra \
 					mstmtserver \
 					mstvpd
-					
-bin_SCRIPTS = mstfwreset
+
+bin_SCRIPTS = hca_self_test.ofed
 
 mstmread_SOURCES = mread.c
 
 mstmwrite_SOURCES = mwrite.c
 
 mstvpd_SOURCES = vpd.c
-mstvpd_LDADD = $(top_srcdir)/mvpd/libmvpd.a ../mtcr_ul/libmtcr_ul.a -ldl
 
 mstmcra_SOURCES  = mcra.c
 
 mstmtserver_SOURCES = mtserver.c tcp.c tcp.h
 mstmtserver_CFLAGS = -DMST_UL
-
-
-MSTFWRESET_PYTHON_WRAPPER=mstfwreset
-${MSTFWRESET_PYTHON_WRAPPER}: $(PYTHON_WRAPPER_SCRIPT)
-	cp $(PYTHON_WRAPPER_SCRIPT) $@
-mstfwresetlibdir=$(libdir)/mstflint/python_tools/$(MSTFWRESET_PYTHON_WRAPPER)
-mstfwresetlib_DATA = $(MSTFWRESET_PYTHON_WRAPPER).py
-

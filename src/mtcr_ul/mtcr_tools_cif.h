@@ -39,6 +39,9 @@ extern "C" {
 
 
 #include <compatibility.h>
+#ifdef MST_UL
+#include <mtcr_int_defs.h>
+#endif
 #include <mtcr.h>
 
 #define FLASH_REG_ACCESS	0x9001
@@ -67,8 +70,8 @@ int tools_cmdif_reg_access(mfile *mf, void* data,int write_data_size, int read_d
  * check if sending registers via tools HCR is supported
  *
  */
-MTCR_API int tools_cmdif_is_supported(mfile *mf);
-MTCR_API int tools_cmdif_is_cr_mbox_supported(mfile *mf);
+int tools_cmdif_is_supported(mfile *mf);
+int tools_cmdif_is_cr_mbox_supported(mfile *mf);
 
 #ifdef __cplusplus
 }

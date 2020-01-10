@@ -28,13 +28,13 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
  */
 
-#include "mtcr_ib.h"
-#include "mtcr_ib_res_mgt.h"
-#include "packets_common.h"
 #include <string.h>
+
+#include "mtcr_ib_res_mgt.h"
+#include "mtcr_ib.h"
+#include "packets_common.h"
 
 #define IB_SMP_DATA_SIZE 48
 #define SMP_SEMAPHOE_LOCK_CMD 0xff53
@@ -63,7 +63,7 @@ struct semaphore_lock_cmd {
      u_int8_t op;
 /*---------------- DWORD[2] (Offset 0x8) ----------------*/
     /* Description - This field is provided by the device on a successful lock. It should be used by the user in order to either extend or release of the lock. */
-    /* 8.0 - 8.31 */
+    /* 8.0 - 12.31 */
      u_int32_t lock_key;
 };
 
@@ -92,7 +92,7 @@ void semaphore_lock_cmd_pack(const struct semaphore_lock_cmd *ptr_struct, u_int8
     push_to_buff(ptr_buff, offset, 2, (u_int32_t)ptr_struct->op);
 
     offset=64;
-    push_to_buff_32(ptr_buff, offset, ptr_struct->lock_key);
+    push_to_buff_64(ptr_buff, offset, (u_int64_t)ptr_struct->lock_key);
 
 }
 
@@ -122,7 +122,7 @@ void semaphore_lock_cmd_unpack(struct semaphore_lock_cmd *ptr_struct, u_int8_t* 
     ptr_struct->op = (u_int8_t)pop_from_buff(ptr_buff, offset, 2);
 
     offset=64;
-    ptr_struct->lock_key = pop_from_buff_32(ptr_buff, offset);
+    ptr_struct->lock_key = (u_int32_t)pop_from_buff_64(ptr_buff, offset);
 
 }
 
@@ -136,7 +136,6 @@ int mib_semaphore_lock_vs_mad(
         u_int8_t* lease_time_exp,
         sem_lock_method_t method)
 {
-#ifndef NO_INBAND
     u_int8_t mad_data[IB_SMP_DATA_SIZE] = {0};
     int rc = ME_OK;
     struct semaphore_lock_cmd cmd;
@@ -159,22 +158,10 @@ int mib_semaphore_lock_vs_mad(
     *is_leaseable = (int)cmd.is_lease;
     *lease_time_exp = cmd.lease_time_exponent;
     return rc;
-#else
-    (void)mf;
-    (void)op;
-    (void)sem_addr;
-    (void)lock_key;
-    (void)res;
-    (void)is_leaseable;
-    (void)lease_time_exp;
-    (void)method;
-    return 1;
-#endif
 }
 
 int mib_semaphore_lock_is_supported(mfile* mf)
 {
-#ifndef NO_INBAND
     u_int8_t mad_data[IB_SMP_DATA_SIZE] = {0};
     struct semaphore_lock_cmd cmd;
     memset(&cmd, 0, sizeof(cmd));
@@ -186,8 +173,4 @@ int mib_semaphore_lock_is_supported(mfile* mf)
     } else {
         return 0;
     }
-#else
-    (void)mf;
-    return 1;
-#endif
 }

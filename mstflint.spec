@@ -1,77 +1,42 @@
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	4.8.0
-Release:	3%{?dist}
+Version:	4.3.0
+Release:	1.49.g9b9af70.1%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-Source: 	https://github.com/Mellanox/%{name}/files/1457191/%{name}-%{version}.tar.gz
-Patch1: 	0001-Extend-buffer-for-a-few-arrays.patch
-Patch2: 	0001-Return-zero-when-fread-reach-the-end-of-vpd-file.patch
-Url:		https://github.com/Mellanox/mstflint
+Source:		https://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.49.g9b9af70.tar.gz
+Url:		http://www.openfabrics.org
 BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel
-BuildRequires:  libcurl-devel, boost-devel, libxml2-devel, openssl-devel
 Obsoletes:	openib-mstflint <= 1.4 openib-tvflash <= 0.9.2 tvflash <= 0.9.0
 ExcludeArch:	s390 s390x
 
 %description
-This package contains firmware update tool, vpd dump and register dump tools
-for network adapters based on Mellanox Technologies chips.
+This package contains a burning tool for Mellanox manufactured HCA cards.
+It also provides access to the relevant source code.
 
 %prep
 %setup -q
-%patch1 -p1
-%patch2 -p1
 find . -type f -iname '*.[ch]' -exec chmod a-x '{}' ';'
 find . -type f -iname '*.cpp' -exec chmod a-x '{}' ';'
 
 %build
 export CFLAGS="$RPM_OPT_FLAGS"
 export CXXFLAGS="$RPM_OPT_FLAGS -std=gnu++98 -Wno-c++11-compat"
-%configure --enable-fw-mgr
+%configure
 %make_build
 
 %install
 make DESTDIR=%{buildroot} install
 # Remove the devel files that we don't ship
 rm -fr %{buildroot}%{_includedir}
-find %{buildroot} -type f -name '*.la' -delete
-find %{buildroot} -type f -name libmtcr_ul.a -delete
+rm -fr %{buildroot}%{_datadir}
+rm -fr %{buildroot}%{_libdir}/*.a
 
 %files
 %doc README
 %_bindir/*
-%{_sysconfdir}/mstflint
-%{_libdir}/mstflint
-
-%{_datadir}/mstflint
-%{_mandir}/man1/*
 
 %changelog
-* Thu Dec  7 2017 Honggang Li <honli@redhat.com> - 4.8.0-3
-- Fixes mstvpd for mlx5 devices
-- Resolves: bz1515993
-
-* Sun Nov 12 2017 Honggang Li <honli@redhat.com> - 4.8.0-2
-- Remove redundant file from mstflint
-- Resolves: bz1512368
-
-* Wed Nov  1 2017 Honggang Li <honli@redhat.com> - 4.8.0-1
-- Rebase to upstream latest release 4.8.0
-- Resolves: bz1456545
-
-* Fri Oct  6 2017 Honggang Li <honli@redhat.com> - 4.7.0-1
-- Rebase to upstream latest release 4.7.0
-- Resolves: bz1456545
-
-* Tue Mar  7 2017 Honggang Li <honli@redhat.com> - 4.6.0-2
-- Fix manpage issues reported by lexgrog.
-- Resolves: bz948474
-
-* Mon Feb 27 2017 Honggang Li <honli@redhat.com> - 4.6.0-1
-- Rebase to latest upstream from github.
-- Add man pages.
-- Resolves: bz948474, bz1416697
-
 * Wed Apr 20 2016 Honggang Li <honli@redhat.com> - 4.3.0-1.49.g9b9af70.1
 - Rebase to latest upstream version 4.3.0-1.49.g9b9af70.
 - Spec file cleanup.

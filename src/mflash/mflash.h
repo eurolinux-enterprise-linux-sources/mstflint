@@ -65,6 +65,18 @@ typedef enum MfCommandSet {
     MCS_SSTSPI = 0x81
 } MfCommandSet;
 
+typedef struct flash_params {
+    const char *type_name;
+    int log2size;
+    int num_of_flashes;
+} flash_params_t;
+
+typedef struct write_protect_info {
+    u_int8_t is_subsector;
+    u_int8_t is_bottom;
+    u_int8_t sectors_num;
+} write_protect_info_t;
+
 /////////////////////////////////////////////
 //
 // MFLASH INTERFACE FUNCTIONS
@@ -155,7 +167,7 @@ int     mf_get_opt     (mflash* mfl, MfOpt opt, int *val);
 
 int     mf_enable_hw_access(mflash* mfl, u_int64_t key);
 int     mf_disable_hw_access(mflash* mfl);
-int     mf_release_semaphore(mflash* mfl);
+int     mf_release_semaphore();
 
 // get mfile object
 mfile* mf_get_mfile(mflash* mfl);

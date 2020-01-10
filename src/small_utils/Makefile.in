@@ -47,7 +47,6 @@
 #--
 
 
-
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -118,16 +117,14 @@ subdir = small_utils
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(mstfwresetlibdir)"
+am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_mstmcra_OBJECTS = mcra.$(OBJEXT)
 mstmcra_OBJECTS = $(am_mstmcra_OBJECTS)
@@ -155,8 +152,8 @@ mstmwrite_LDADD = $(LDADD)
 mstmwrite_DEPENDENCIES = ../mtcr_ul/libmtcr_ul.a
 am_mstvpd_OBJECTS = vpd.$(OBJEXT)
 mstvpd_OBJECTS = $(am_mstvpd_OBJECTS)
-mstvpd_DEPENDENCIES = $(top_srcdir)/mvpd/libmvpd.a \
-	../mtcr_ul/libmtcr_ul.a
+mstvpd_LDADD = $(LDADD)
+mstvpd_DEPENDENCIES = ../mtcr_ul/libmtcr_ul.a
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -228,7 +225,6 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
-DATA = $(mstfwresetlib_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
@@ -260,10 +256,8 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
-COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
-CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -271,7 +265,6 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
-DISABLE_XML2 = @DISABLE_XML2@
 DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
@@ -280,7 +273,6 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
-ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -297,12 +289,9 @@ LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
-MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
-MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
-MLXFWUPDATE = @MLXFWUPDATE@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -323,11 +312,8 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
-TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
-XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -381,20 +367,15 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-PYTHON_WRAPPER_SCRIPT = ../common/python_wrapper
-AM_CPPFLAGS = -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd
+INCLUDES = -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common
 LDADD = ../mtcr_ul/libmtcr_ul.a -ldl
-bin_SCRIPTS = mstfwreset
+bin_SCRIPTS = hca_self_test.ofed
 mstmread_SOURCES = mread.c
 mstmwrite_SOURCES = mwrite.c
 mstvpd_SOURCES = vpd.c
-mstvpd_LDADD = $(top_srcdir)/mvpd/libmvpd.a ../mtcr_ul/libmtcr_ul.a -ldl
 mstmcra_SOURCES = mcra.c
 mstmtserver_SOURCES = mtserver.c tcp.c tcp.h
 mstmtserver_CFLAGS = -DMST_UL
-MSTFWRESET_PYTHON_WRAPPER = mstfwreset
-mstfwresetlibdir = $(libdir)/mstflint/python_tools/$(MSTFWRESET_PYTHON_WRAPPER)
-mstfwresetlib_DATA = $(MSTFWRESET_PYTHON_WRAPPER).py
 all: all-am
 
 .SUFFIXES:
@@ -601,27 +582,6 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-mstfwresetlibDATA: $(mstfwresetlib_DATA)
-	@$(NORMAL_INSTALL)
-	@list='$(mstfwresetlib_DATA)'; test -n "$(mstfwresetlibdir)" || list=; \
-	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(mstfwresetlibdir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(mstfwresetlibdir)" || exit 1; \
-	fi; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(mstfwresetlibdir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(mstfwresetlibdir)" || exit $$?; \
-	done
-
-uninstall-mstfwresetlibDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(mstfwresetlib_DATA)'; test -n "$(mstfwresetlibdir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(mstfwresetlibdir)'; $(am__uninstall_files_from_dir)
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -707,9 +667,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS) $(SCRIPTS) $(DATA)
+all-am: Makefile $(PROGRAMS) $(SCRIPTS)
 installdirs:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(mstfwresetlibdir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -764,7 +724,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-mstfwresetlibDATA
+install-data-am:
 
 install-dvi: install-dvi-am
 
@@ -810,8 +770,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-mstfwresetlibDATA
+uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS
 
 .MAKE: install-am install-strip
 
@@ -823,16 +782,13 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	install-binSCRIPTS install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
-	install-mstfwresetlibDATA install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-binSCRIPTS uninstall-mstfwresetlibDATA
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags tags-am uninstall uninstall-am \
+	uninstall-binPROGRAMS uninstall-binSCRIPTS
 
-${MSTFWRESET_PYTHON_WRAPPER}: $(PYTHON_WRAPPER_SCRIPT)
-	cp $(PYTHON_WRAPPER_SCRIPT) $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

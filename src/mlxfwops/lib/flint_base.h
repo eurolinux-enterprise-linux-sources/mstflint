@@ -46,10 +46,6 @@
     #include "uefi_c.h"
 #endif
 
-#if defined __FreeBSD__
-    #include <stdarg.h>
-#endif
-
 #include <signal.h>
 #include "tools_version.h"
 
@@ -186,13 +182,6 @@ namespace std {}; using namespace std;
 		return false; }} while (0)
 #define READBUF(f,o,d,l,p) do { if (!f.read(o,d,l)) { \
     return errmsg("%s - read error (%s)\n", p, f.err()); }} while (0)
-#define READALLOCBUF(f,o,d,l,p) do {\
-    d = (u_int8_t*) malloc(sizeof(u_int8_t) * l);\
-    if (!f.read(o,d,l)) { \
-        free(d);\
-        return errmsg("%s - read error (%s)\n", p, f.err());\
-    }\
-} while (0)
 
 #define FS2_BOOT_START   0x38
 #define FS_DATA_OFF      0x28
@@ -200,15 +189,11 @@ namespace std {}; using namespace std;
 #define SWITCH_IB_HW_ID  583
 #define SPECTRUM_HW_ID   585
 #define SWITCH_IB2_HW_ID 587
-#define QUANTUM_HW_ID    589
-#define SPECTRUM2_HW_ID  591
 
 
 #define CX4_HW_ID         521
 #define CX4LX_HW_ID       523
 #define CX5_HW_ID         525
-#define CX6_HW_ID         527
-#define BF_HW_ID          529
 #define CX2_HW_ID         400
 #define CX3_HW_ID         501
 #define CX3_PRO_HW_ID     503
@@ -220,12 +205,6 @@ namespace std {}; using namespace std;
 #define FS3_BOOT_START        FS2_BOOT_START
 #define FS3_BOOT_START_IN_DW  FS3_BOOT_START/4
 
-// FS4 defines
-#define FS4_BOOT_START        0x10
-#define FS4_BOOT_START_IN_DW  FS4_BOOT_START/4
-#define FS4_BOOT2_START        0x188
-#define FS4_HW_PTR_START       0x18
-#define FS4_HW_PTR_SIZE_DW     CX5FW_HW_POINTERS_SIZE / 4
 
 #define CRC_CHECK_OLD "%s /0x%08x-0x%08x (0x%06x)/ (%s"
 
@@ -299,7 +278,6 @@ typedef enum fs3_section {
     FS3_HW_MAIN_CFG   = 0x9,
     FS3_PHY_UC_CODE   = 0xa,
     FS3_PHY_UC_CONSTS = 0xb,
-    FS3_PHY_UC_CMD    = 0xc,
     FS3_IMAGE_INFO    = 0x10,
     FS3_FW_BOOT_CFG   = 0x11,
     FS3_FW_MAIN_CFG   = 0x12,
@@ -309,9 +287,6 @@ typedef enum fs3_section {
     // FS3_DBG_LOG_MAP = 0x30 - in practice its unused and DBG_FW_INI is found in that section instead
     FS3_DBG_FW_PARAMS = 0x32,
     FS3_FW_ADB        = 0x33,
-    FS3_IMAGE_SIGNATURE = 0xa0,
-    FS3_PUBLIC_KEYS   = 0xa1,
-    FS3_FORBIDDEN_VERSIONS = 0xa2,
     FS3_MFG_INFO      = 0xe0,
     FS3_DEV_INFO      = 0xe1,
     FS3_NV_DATA1      = 0xe2,
@@ -319,12 +294,10 @@ typedef enum fs3_section {
     FS3_NV_DATA2      = 0xe4,
     FS3_FW_NV_LOG     = 0xe5,
     FS3_NV_DATA0      = 0xe6, // replaces FS3_NV_DATA1
-    FS4_HW_PTR        = 0xfb,
-    FS4_TOOLS_AREA    = 0xfc,
     FS3_ITOC          = 0xfd,
-    FS3_DTOC          = 0xfe,
     FS3_END           = 0xff,
 } fs3_section_t;
+
 
 enum CommandType {
     CMD_UNKNOWN,
@@ -360,9 +333,6 @@ enum CommandType {
     CMD_HW_INFO,
     CMD_SET_MFG_GUIDS,
     CMD_BURN_VPD,
-    CMD_SET_SIGNATURE,
-    CMD_SET_PUBLIC_KEYS,
-    CMD_SET_FORBIDDEN_VERSIONS
 };
 
 
@@ -402,10 +372,10 @@ void report_repair_msg(const char* common_msg);
 //                  BASE CLASSES
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class MLXFWOP_API FlintErrMsg {
+class MLXFWOP_API ErrMsg {
 public:
-    FlintErrMsg() : _err(0), _errCode(0){}
-    ~FlintErrMsg()                { err_clear();}
+    ErrMsg() : _err(0), _errCode(0){}
+    ~ErrMsg()                { err_clear();}
     const char *err() const  { return _err;}
     void err_clear();
     int getErrorCode() {return _errCode;}

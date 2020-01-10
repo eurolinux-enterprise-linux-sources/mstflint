@@ -82,10 +82,6 @@ void mft_signal_set_fired(int is_fired);
  */
 void mft_signal_set_msg(char* msg);
 
-/**
- * @brief Deal with signals, if got signal - raise, otherwise restore it
- */
-void mft_restore_and_raise();
 #ifdef __cplusplus
 }
 #endif

@@ -32,13 +32,13 @@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
 USER_DIR = $(top_srcdir)
-AM_CPPFLAGS = -I. -I$(USER_DIR)/common $(COMPILER_FPIC)
+INCLUDES = -I. -I$(USER_DIR)/common
 
-AM_CFLAGS = -MD -pipe -Wall -W -Werror $(COMPILER_FPIC)
+AM_CFLAGS = -MD -pipe -Wall -W -Werror
 
 noinst_HEADERS = mft_sig_handler.h errmsg.h
 
 noinst_LIBRARIES = libmftutils.a
 
-libmftutils_a_SOURCES =  mft_sig_handler.c errmsg.cpp calc_hw_crc.c mlarge_buffer.cpp
+libmftutils_a_SOURCES =  mft_sig_handler.c errmsg.cpp
 

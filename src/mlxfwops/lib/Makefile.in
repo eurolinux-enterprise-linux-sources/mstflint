@@ -110,16 +110,12 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@ENABLE_FWMGR_TRUE@am__append_1 = -I$(top_srcdir)/libmfa
-@ENABLE_FWMGR_FALSE@am__append_2 = -DNO_MFA_SUPPORT
-@ENABLE_OPENSSL_FALSE@am__append_3 = -DNO_OPEN_SSL
-@ENABLE_CS_FALSE@am__append_4 = -DNO_CS_CMD
+@ENABLE_OPENSSL_FALSE@am__append_1 = -DNO_OPEN_SSL
 subdir = mlxfwops/lib
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -136,8 +132,7 @@ libmlxfwops_a_AR = $(AR) $(ARFLAGS)
 libmlxfwops_a_LIBADD =
 am_libmlxfwops_a_OBJECTS = flint_base.$(OBJEXT) flint_io.$(OBJEXT) \
 	fw_ops.$(OBJEXT) fs2_ops.$(OBJEXT) fs3_ops.$(OBJEXT) \
-	fs4_ops.$(OBJEXT) mlxfwops.$(OBJEXT) fsctrl_ops.$(OBJEXT) \
-	aux_tlv_ops.$(OBJEXT)
+	mlxfwops.$(OBJEXT) aux_tlv_ops.$(OBJEXT)
 libmlxfwops_a_OBJECTS = $(am_libmlxfwops_a_OBJECTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -233,10 +228,8 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
-COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
-CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -244,7 +237,6 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
-DISABLE_XML2 = @DISABLE_XML2@
 DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
@@ -253,7 +245,6 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
-ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -270,12 +261,9 @@ LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
-MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
-MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
-MLXFWUPDATE = @MLXFWUPDATE@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -296,11 +284,8 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
-TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
-XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -364,23 +349,20 @@ COMMON_DIR = $(top_srcdir)/common
 LAYOUTS_DIR = $(top_srcdir)/tools_layouts
 UTILS_LIB = $(top_srcdir)/mft_utils
 UEFI_COMMON_DIR = $(top_srcdir)/mlxfwops/uefi_c
-AM_CPPFLAGS = -I$(srcdir) -I$(MTCR_INC_DIR) -I$(MFLASH_DIR) \
-	-I$(top_srcdir)/ext_libs/json -I$(MINIXZ_DIR) -I$(COMMON_DIR) \
-	-I$(LAYOUTS_DIR) -I$(top_srcdir)/common -I$(UTILS_LIB) \
-	-I$(UEFI_COMMON_DIR) $(am__append_1)
+INCLUDES = -I$(srcdir) -I$(MTCR_INC_DIR) -I$(MFLASH_DIR) -I$(top_srcdir)/ext_libs/json -I$(MINIXZ_DIR)\
+           -I$(COMMON_DIR) -I $(LAYOUTS_DIR) -I$(top_srcdir)/common -I$(UTILS_LIB) -I$(UEFI_COMMON_DIR)
+
 MLXFWOPS_VERSION = 1
-AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe $(COMPILER_FPIC) \
-	$(am__append_2) $(am__append_3) $(am__append_4)
+AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe -DNO_MFA_SUPPORT \
+	$(am__append_1)
 noinst_LIBRARIES = libmlxfwops.a
 libmlxfwops_a_SOURCES = flint_base.cpp \
                flint_io.cpp \
                fw_ops.cpp \
                fs2_ops.cpp fs2_ops.h \
                fs3_ops.cpp fs3_ops.h \
-               fs4_ops.cpp fs4_ops.h \
                mlxfwops.cpp mlxfwops.h \
-               fsctrl_ops.cpp fsctrl_ops.h \
-               mlxfwops_com.h fw_ops.h flint_base.h flint_io.h \
+               mlxfwops_com.h mlxfwops.h fw_ops.h flint_base.h flint_io.h\
                aux_tlv_ops.h aux_tlv_ops.cpp
 
 all: all-am
@@ -437,8 +419,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/flint_io.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fs2_ops.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fs3_ops.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fs4_ops.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fsctrl_ops.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fw_ops.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxfwops.Po@am__quote@
 

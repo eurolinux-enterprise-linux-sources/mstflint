@@ -87,7 +87,7 @@ typedef struct ext_flash_attr {
 } ext_flash_attr_t;
 
 // Common base class for Flash and for FImage
-class MLXFWOP_API FBase : public FlintErrMsg {
+class MLXFWOP_API FBase : public ErrMsg {
 public:
     FBase(bool is_flash) :
     _is_image_in_odd_chunks(false),
@@ -108,7 +108,6 @@ public:
 
     virtual u_int32_t get_dev_id()                         = 0;
     virtual u_int32_t get_rev_id()                         = 0;
-    virtual BinIdT    get_bin_id() { return UNKNOWN_BIN;} ;
     Crc16&            get_image_crc() {return _image_crc;};
     bool              is_flash() {return _is_flash;};
 
@@ -129,9 +128,6 @@ public:
         set_address_convertor(log2_chunk_size_bak, is_image_in_odd_chunks_bak);
         return phys_addr;
     }
-
-    u_int32_t   get_log2_chunk_size(){return _log2_chunk_size;}
-    bool        get_is_image_in_odd_chunks(){return _is_image_in_odd_chunks;}
 
     enum {
         MAX_FLASH = 4*1048576
@@ -172,16 +168,6 @@ protected:
         return result;
     }
 
-    bool readWriteCommCheck(u_int32_t addr, int len) {
-        if (addr & 0x3) {
-            return errmsg("Address should be 4-bytes aligned.");
-        }
-        if (len & 0x3) {
-            return errmsg("Length should be 4-bytes aligned.");
-        }
-        return true;
-    }
-
     bool       _is_image_in_odd_chunks;
     u_int32_t  _log2_chunk_size;
     Crc16      _image_crc;
@@ -199,13 +185,11 @@ class MLXFWOP_API FImage : public FBase {
 public:
     FImage() :
     FBase(false),
-    _fname(0),
-    _buf(),
-    _isFile(false),
+    _buf(0),
     _len(0) {}
     virtual ~FImage() { close();}
 
-    u_int32_t    *getBuf();
+    u_int32_t    *getBuf()      { return _buf;}
     u_int32_t    getBufLength() { return _len;}
     virtual bool open(const char *fname, bool read_only = false, bool advErr = true);
     using FBase::open;
@@ -213,21 +197,13 @@ public:
     virtual void close();
     virtual bool read(u_int32_t addr, u_int32_t *data);
     virtual bool read(u_int32_t addr, void *data, int len, bool verbose=false, const char* message= "");
-    virtual bool write(u_int32_t addr, void* data, int cnt);
-
 
     virtual u_int32_t get_sector_size();
     virtual u_int32_t get_size()     { return  getBufLength();}
     virtual u_int32_t get_dev_id()   { return  0;}
     virtual u_int32_t get_rev_id()   { return  0;}
 private:
-    bool readFileGetBuffer(std::vector<u_int8_t>& dataBuf);
-    bool writeEntireFile(std::vector<u_int8_t>& fileContent);
-    bool getFileSize(int& fileSize);
-
-    const char*     _fname;
-    std::vector<u_int8_t> _buf;
-    bool      _isFile;
+    u_int32_t *_buf;
     u_int32_t _len;
 };
 
@@ -303,7 +279,6 @@ public:
 
     u_int32_t get_dev_id             ()  {return _attr.hw_dev_id; }
     u_int32_t get_rev_id             ()  {return _attr.rev_id; }
-    BinIdT    get_bin_id             ()  {return _attr.bin_id;} ;
     u_int32_t get_port_num           ()  {return _port_num;}
     u_int8_t  get_cr_space_locked    ()  {return _cr_space_locked;}
     bool  get_ignore_cache_replacment()  {return _ignore_cache_replacement;}
@@ -346,7 +321,6 @@ public:
     static void  deal_with_signal();
 
     mfile* getMfileObj() {return mf_get_mfile(_mfl);}
-    mflash* getMflashObj() {return _mfl;}
 
     enum {
         TRANS = 4096

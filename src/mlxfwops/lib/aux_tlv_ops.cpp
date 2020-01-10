@@ -147,9 +147,6 @@ Tlv_Status_t ImageTlvOps::init(u_int32_t startPos, bool force)
     }
     fsize = _rawFileBuff.size();
     for (long int i = startPos; i < fsize; i += 4) {
-        if ((i + 16) > fsize) {
-            break; // reached EOF
-        }
         std::vector<u_int8_t> possibleSig(_rawFileBuff.begin() + i , _rawFileBuff.begin() + i + 16);
         TOCPUn(&possibleSig[0], 4);
         if (checkSig(possibleSig)) {
@@ -342,7 +339,7 @@ Tlv_Status_t ImageTlvOps::parseTlvs()
         if (tlv.hdr.header_type == 0x0) { // only know how to deal with header of type 0x0
             // check CRC and store
             if (tlv.hdr.crc != calcTlvCrc(tlv)) {
-                return (Tlv_Status_t)errmsgWCode(TS_TLV_CRC_MISMATCH, "Failed to parse TLVs, CRC mismatch for TLV type 0x%x", tlv.hdr.type);
+                return (Tlv_Status_t)errmsgWCode(TS_TLV_CRC_MISSMATCH, "Failed to parse TLVs, CRC missmatch for TLV type 0x%x", tlv.hdr.type);
             }
             // store it
             _tlvVec.push_back(tlv);

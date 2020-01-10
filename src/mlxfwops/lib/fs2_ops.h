@@ -46,7 +46,7 @@ public:
     virtual ~Fs2Operations()  {};
     //virtual void print_type() {};
     virtual bool FwQuery(fw_info_t *fwInfo, bool readRom = true, bool isStripedImage = false);
-    virtual bool FwVerify(VerifyCallBack verifyCallBackFunc, bool isStripedImage = false, bool showItoc = false, bool ignoreDToc = false);
+    virtual bool FwVerify(VerifyCallBack verifyCallBackFunc, bool isStripedImage = false, bool showItoc = false);
 
     virtual bool FwBurn(FwOperations *imageOps, u_int8_t forceVersion, ProgressCallBack progressFunc=(ProgressCallBack)NULL);
     virtual bool FwBurnAdvanced(FwOperations *imageOps, ExtBurnParams& burnParams);
@@ -141,7 +141,8 @@ private:
     u_int32_t getDefaultSectorSz();
     bool GetMaxImageSize(u_int32_t flash_size, bool image_is_fs, u_int32_t imgConfigSectors, u_int32_t imgFwSectorSz, u_int32_t &max_image_size);
     bool UpdateFullImageCRC(u_int32_t* buff, u_int32_t size, bool blank_guids);
-    bool Fs2FailSafeBurn(Fs2Operations &imageOps,  ExtBurnParams& burnParams);
+    bool Fs2FailSafeBurn(Fs2Operations &imageOps, bool allow_nofs, const char* pre_message,
+            ProgressCallBack progressFunc);
     bool ModifyGuidSection(guid_t *user_guids, ProgressCallBack progressFunc=(ProgressCallBack)NULL);
     bool preFS2PatchGUIDs(bool patch_macs, bool user_guids, bool user_macs,
             guid_t new_guids[MAX_GUIDS], guid_t old_guids[MAX_GUIDS], guid_t **used_guids_p, u_int32_t num_of_old_guids);

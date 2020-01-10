@@ -14,12 +14,12 @@
  *      - Redistributions of source code must retain the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer.
- *
+ * 
  *      - Redistributions in binary form must reproduce the above
  *        copyright notice, this list of conditions and the following
  *        disclaimer in the documentation and/or other materials
  *        provided with the distribution.
- *
+ * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -28,7 +28,6 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
  */
 
 #include <crdump.h>
@@ -39,25 +38,15 @@
 
 #define CAUSE_FLAG "--cause"
 #define MAX_DEV_LEN 512
-
-#ifndef MSTDUMP_NAME
-#define MSTDUMP_NAME "mstdump"
-#endif
-
-#ifndef DEV_EXAMPLE
-#define DEV_EXAMPLE "/dev/mst/mt4099_pci_cr0"
-#endif
-
-
 // string explaining the cmd-line structure
-char correct_cmdline[] = "   Mellanox "MSTDUMP_NAME" utility, dumps device internal configuration data\n\
-   Usage: "MSTDUMP_NAME" [-full] <device> [i2c-slave] [-v[ersion] [-h[elp]]]\n\n\
+char correct_cmdline[] = "   Mellanox mstdump utility, dumps device internal configuration data\n\
+   Usage: mstdump [-full] <device> [i2c-slave] [-v[ersion] [-h[elp]]]\n\n\
    -full              :  Dump more expanded list of addresses\n\
                          Note : be careful when using this flag, None safe addresses might be read.\n\
-   -v | --version     :  Display version info\n\
-   -h | --help        :  Print this help message\n\
+   -v                 :  Display version info\n\
+   -h                 :  Print this help message\n\
    Example :\n\
-            "MSTDUMP_NAME" "DEV_EXAMPLE"\n";
+            mstdump /dev/mst/mt4099_pci_cr0\n";
 
 
 void print_dword(crd_dword_t *dword) {
@@ -75,9 +64,9 @@ int main(int argc, char* argv[]) {
     char *endptr;
     u_int8_t new_i2c_slave = 0;
     char device[MAX_DEV_LEN] = {0};
-#if defined(__linux) || defined (__FreeBSD__)
+#if defined(linux)
     if (geteuid() != 0) {
-        printf("-E- Permission denied: User is not root\n");
+        printf("Permission denied, you need to run this tool as root\n");
         return 1;
     }
 #endif
@@ -89,18 +78,17 @@ int main(int argc, char* argv[]) {
 
     for (i = 1; i < argc; ++i) {
         /* check position-independent flags */
-        if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help") || !strcmp(argv[i], "--help")) {
-            fprintf(stdout, "%s", correct_cmdline);
+        if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
+            fprintf(stderr, "%s", correct_cmdline);
             exit (0);
         }
-        else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "-version") || !strcmp(argv[i], "--version")) {
+        else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "-version")) {
             print_version_string("mstdump", "");
             exit(0);
         }
         else if (!strncmp(argv[i], CAUSE_FLAG, strlen(CAUSE_FLAG))) {
             if (sscanf(argv[i], CAUSE_FLAG"=%i.%d", &cause_addr, &cause_off) != 2) {
                 fprintf(stderr, "Invalid parameters to " CAUSE_FLAG " flag\n");
-                fprintf(stdout, "%s", correct_cmdline);
                 exit(1);
             }
             if (cause_addr < 0 || cause_off < 0) {
@@ -118,11 +106,10 @@ int main(int argc, char* argv[]) {
     }
     if (i >= argc) {
         fprintf(stderr, "Device is not specified in command line. Exiting.\n");
-        fprintf(stdout, "%s", correct_cmdline);
         return 1;
     }
     strncpy(device, argv[i], MAX_DEV_LEN -1);
-    if (!( mf = mopen_adv((const char *)device, (MType)(MST_DEFAULT | MST_CABLE)))) {
+    if (!( mf = mopen((const char *)device))) {
         fprintf(stderr, "Unable to open device %s. Exiting.\n", argv[i]);
         return 1;
     }
@@ -156,7 +143,7 @@ int main(int argc, char* argv[]) {
         }
     }
     rc = CRD_OK;
-    rc = crd_init(&context, mf, full, cause_addr, cause_off, NULL);
+    rc = crd_init(&context, mf, full, cause_addr, cause_off);
     if (rc) {
         mclose(mf);
         goto error;

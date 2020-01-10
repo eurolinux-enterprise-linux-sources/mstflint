@@ -43,7 +43,7 @@ static char* s_interrupt_message = NULL;
     static int signals_array[] =
     {SIGINT};
 #else
-    static int signals_array[] = {SIGINT, SIGQUIT, SIGTERM, SIGUSR1};
+    static int signals_array[] = {SIGINT, SIGQUIT, SIGTERM};
 #endif
 
 static void (*prev_handlers[sizeof(signals_array)/sizeof(signals_array[0])])(int sig);
@@ -52,7 +52,7 @@ static void (*prev_handlers[sizeof(signals_array)/sizeof(signals_array[0])])(int
 
 static void my_termination_handler(int sig)
 {
-    s_is_fired = sig; // assuming signals received are always different then zero
+    s_is_fired = sig; // assuming signals recieved are always different then zero
     if (s_interrupt_message) {
         fprintf(stderr, "%s", s_interrupt_message);
     }
@@ -142,18 +142,3 @@ void mft_signal_set_msg(char* msg)
     s_interrupt_message = msg;
 }
 
-void mft_restore_and_raise()
-{
-    int sig;
-    sig = mft_signal_is_fired();
-    if (sig) {
-        // reset received signal
-        mft_signal_set_fired(0);
-        // retore prev handler
-        mft_signal_set_handling(0);
-        //raise signal to let the previous handle deal with it.
-        raise(sig);
-    }
-    mft_signal_set_handling(0);
-    return;
-}

@@ -36,9 +36,7 @@
 
 #include <bit_slice.h>
 #include <common/tools_utils.h>
-
 #include "mtcr_tools_cif.h"
-#include "mtcr_mf.h"
 
 #define TOOLS_HCR_ADDR      0x80780
 #define CR_MBOX_ADDR        0xe0000
@@ -155,7 +153,7 @@ static void tools_cmdif_unpack(tools_cmdif* cmd, u_int32_t* buf) {
 static int tools_cmdif_flash_lock(mfile* mf, int lock_state) {
     // Obtain Semaphore
     u_int32_t cnt=0;
-    u_int32_t word = 0;
+    u_int32_t word;
     if (lock_state) {
         do {
             if (++cnt > TOOLS_SEM_TRIES) {
@@ -185,7 +183,7 @@ static int tools_cmdif_wait_go(mfile* mf, int* retries)
     int wait=1;
 
     for (i = 0; i < CMD_IF_WAIT_GO; i++) {
-        u_int32_t word = 0;
+        u_int32_t word;
         MREAD4(TOOLS_HCR_ADDR + CMD_IF_SIZE - 4, &word);
         go_bit = EXTRACT(word, 23, 1);
         if (!go_bit) {
@@ -301,7 +299,7 @@ int tools_cmdif_send_inline_cmd(mfile* mf,
 // read from mailbox method. output[2] is in BigEndian
 static int tools_cmdif_mbox_read(mfile* mf, u_int32_t offset, u_int32_t output[2])
 {
-	if (!mf || (offset & 0x1) != 0 || !output) {// offset should be quad word aligned (i.e only even dwords)
+	if (!mf || (offset & 0x1) != 0 || !output) {// offset should be quad word alligned (i.e only even dwords)
 		return ME_BAD_PARAMS;
 	}
 	tools_cmdif cmdif;
@@ -324,7 +322,7 @@ static int tools_cmdif_mbox_read(mfile* mf, u_int32_t offset, u_int32_t output[2
 // write to mailbox method. input[2] is in BigEndian
 static int tools_cmdif_mbox_write(mfile* mf, u_int32_t offset, u_int32_t input[2])
 {
-	if (!mf || (offset & 0x1) != 0) {// offset should be quad word aligned (i.e only even dwords)
+	if (!mf || (offset & 0x1) != 0) {// offset should be quad word alligned (i.e only even dwords)
 		return ME_BAD_PARAMS;
 	}
 	tools_cmdif cmdif;
@@ -411,7 +409,7 @@ cleanup_no_sem:
     return val == MAGIC ? ME_OK : ME_CMDIF_NOT_SUPP;
 }
 
-#define COMPLEMENT_TO_QUAD_ALIGNED(byte_sz) \
+#define COMPLEMENT_TO_QUAD_ALLIGNED(byte_sz) \
         ((byte_sz) + ((8 - ((byte_sz) & 7) == 8) ? 0 : (8 - ((byte_sz) & 7))))
 
 int tools_cmdif_send_mbox_command_int(mfile* mf,
@@ -425,16 +423,16 @@ int tools_cmdif_send_mbox_command_int(mfile* mf,
                                            int skip_write,
                                            int use_cr_mbox)
 {
-    int read_data_size_quad_aligned =  COMPLEMENT_TO_QUAD_ALIGNED(read_data_size);
-    int write_data_size_quad_aligned =  COMPLEMENT_TO_QUAD_ALIGNED(write_data_size);
+    int read_data_size_quad_alligned =  COMPLEMENT_TO_QUAD_ALLIGNED(read_data_size);
+    int write_data_size_quad_alligned =  COMPLEMENT_TO_QUAD_ALLIGNED(write_data_size);
     int rc,
         i;
     /*printf("-D- opcode: 0x%x, opcode mod: 0x%x, data_offs_in_mbox: 0x%x, write_data_size: 0x%x(0x%x), read_data_size 0x%x(0x%x), skip_write: %d\n",\
-             opcode, opcode_modifier, data_offs_in_mbox, write_data_size, write_data_size_quad_aligned, read_data_size, read_data_size_quad_aligned, skip_write);*/
+    		opcode, opcode_modifier, data_offs_in_mbox, write_data_size, write_data_size_quad_alligned, read_data_size, read_data_size_quad_alligned, skip_write);*/
     // check params
     if (!mf || !data || data_offs_in_mbox < 0 || (data_offs_in_mbox & 7) != 0 || \
-            data_offs_in_mbox + read_data_size_quad_aligned > TOOLS_HCR_MAX_MBOX || \
-            data_offs_in_mbox + write_data_size_quad_aligned > TOOLS_HCR_MAX_MBOX) {
+            data_offs_in_mbox + read_data_size_quad_alligned > TOOLS_HCR_MAX_MBOX || \
+            data_offs_in_mbox + write_data_size_quad_alligned > TOOLS_HCR_MAX_MBOX) {
         return ME_BAD_PARAMS;
     }
     mpci_change(mf);
@@ -486,12 +484,12 @@ int tools_cmdif_send_mbox_command_int(mfile* mf,
     // read read_data_size bytes from mbox and update our data
      if (use_cr_mbox == 1) {
          // read mailbox from virtual CR-space
-         rc = tools_cmdif_cr_mbox_read(mf, data_offs_in_mbox, &mailbox[data_offs_in_mbox], read_data_size_quad_aligned);
+         rc = tools_cmdif_cr_mbox_read(mf, data_offs_in_mbox, &mailbox[data_offs_in_mbox], read_data_size_quad_alligned);
          if (rc) {
              goto cleanup;
          }
      } else {
-         for (i = data_offs_in_mbox ; i< (data_offs_in_mbox + read_data_size_quad_aligned); i+=8) { // it is required to write in quad word chunks (64bits each time)
+         for (i = data_offs_in_mbox ; i< (data_offs_in_mbox + read_data_size_quad_alligned); i+=8) { // it is required to write in quad word chunks (64bits each time)
              rc = tools_cmdif_mbox_read(mf, i/4, (u_int32_t*)&(mailbox[i]));
              if (rc) {
                  goto cleanup;

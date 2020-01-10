@@ -1,25 +1,19 @@
 %{!?ibmadlib: %define ibmadlib libibmad-devel}
 %{!?name: %define name mstflint}
-%{!?version: %define version 4.7.0}
+%{!?version: %define version 4.3.0}
 %{!?release: %define release 1}
 %{!?buildtype: %define buildtype "native"}
 %{!?noinband: %define noinband 0}
 %{!?nodc: %define nodc 0}
 %{!?enablecs: %define enablecs 0}
-%{!?nopenssl: %define nopenssl 1}
-%{!?enablefwmgr: %define enablefwmgr 0}
-%{!?CONF_DIR: %define CONF_DIR /etc/mstflint}
 
-%define mstflint_python_tools %{_libdir}/mstflint/python_tools
-
-%define _unpackaged_files_terminate_build 0
 %define debug_package %{nil}
 %define optflags -g -O2
 
 Summary: Mellanox firmware burning application
 Name: %{name}
 Version: %{version}
-Release: %{release} 
+Release: 1
 License: GPL/BSD
 Url: http://openfabrics.org
 Group: System Environment/Base
@@ -45,16 +39,8 @@ for network adapters based on Mellanox Technologies chips.
     config_flags="$config_flags --disable-inband"
 %endif
 
-%if ! %{nopenssl}
-    config_flags="$config_flags --enable-openssl"
-%endif
-
 %if %{enablecs}
     config_flags="$config_flags --enable-cs"
-%endif
-
-%if %{enablefwmgr}
-    config_flags="$config_flags --enable-fw-mgr"
 %endif
 
 %if %{buildtype} == "ppc"
@@ -83,14 +69,6 @@ make DESTDIR=${RPM_BUILD_ROOT} install
 # remove unpackaged files from the buildroot
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
-# create softlinks to old mtcr header and lib locations
-# link mtcr_ul to old location
-mkdir -p %{buildroot}/%{_includedir}/mtcr_ul
-ln -s %{_includedir}/mstflint/mtcr.h %{buildroot}/%{_includedir}/mtcr_ul/mtcr.h
-ln -s %{_includedir}/mstflint/mtcr_com_defs.h %{buildroot}/%{_includedir}/mtcr_ul/mtcr_com_defs.h
-# link mtcr_ul to old lib path
-ln -s %{_libdir}/mstflint/libmtcr_ul.a %{buildroot}/%{_libdir}/libmtcr_ul.a 
-
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -104,52 +82,13 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/mstvpd
 %{_bindir}/mstmcra
 %{_bindir}/mstconfig
-%{_bindir}/mstfwreset
-%if %{enablefwmgr}
- %{_bindir}/mstfwmanager
-%{CONF_DIR}/ca-bundle.crt
-%endif
-
-%{_includedir}/mstflint/mtcr.h
-%{_includedir}/mstflint/mtcr_com_defs.h
+%{_bindir}/hca_self_test.ofed
 %{_includedir}/mtcr_ul/mtcr.h
-%{_includedir}/mtcr_ul/mtcr_com_defs.h
-%{_libdir}/mstflint/libmtcr_ul.a
 %{_libdir}/libmtcr_ul.a
-
-%{mstflint_python_tools}/tools_version.py
-%{mstflint_python_tools}/mstfwreset/mstfwreset.py
-%{mstflint_python_tools}/mtcr.py
-%{mstflint_python_tools}/cmtcr.so
-%{mstflint_python_tools}/cmdif.py
-%{mstflint_python_tools}/ccmdif.so
-%{mstflint_python_tools}/regaccess.py
-%{mstflint_python_tools}/rreg_access.so
-%{mstflint_python_tools}/dev_mgt.py
-%{mstflint_python_tools}/c_dev_mgt.so
-
 %{_datadir}/mstflint
 %{_mandir}/man1/*
 
 %changelog
-* Mon Jul 17 2017 Adham Masarwah <adham@dev.mellanox.co.il>
-   Adding mlxfwreset to mstflint
-   
-* Mon May 08 2017 Adrian Chiris <adrianc@dev.mellanox.co.il>
-   MFT 4.7.0 Updates
-   
-* Mon Jan 10 2017 Adham Masarwah <adham@dev.mellanox.co.il>
-   Removed hca_self_test.ofed installation from the package
-    
-* Mon Jan 9 2017 Adham Masarwah <adham@dev.mellanox.co.il>
-   MFT 4.6.0 Updates
-    
-* Wed May 17 2016 Adrian Chiris <adrianc@dev.mellanox.co.il>
-   MFT 4.4.0 Updates
-   
-* Wed Mar 23 2016 Adrian Chiris <adrianc@dev.mellanox.co.il>
-   MFT 4.4.0 Updates
-
 * Mon Jan 11 2016 Adrian Chiris <adrianc@dev.mellanox.co.il>
    MFT 4.3.0 Updates
 

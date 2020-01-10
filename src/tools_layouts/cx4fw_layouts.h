@@ -31,10 +31,10 @@
  */
 
 /***
-         *** This file was generated at "2016-11-06 15:18:05"
-         *** by:
-         ***    > /mswg/release/eat_me/last_release/adabe_plugins/adb2c/adb2pack.py --input adb/cx4fw/cx4fw.adb --file-prefix cx4fw --prefix cx4fw_
-         ***/
+ *** This file was generated at "2015-04-20 13:45:40"
+ *** by:
+ ***    > /mswg/release/eat_me/last_release/adabe_plugins/adb2c/adb2pack.py --input adb/connectx4/connectx4.adb --file-prefix cx4fw --prefix cx4fw_
+ ***/
 #ifndef CX4FW_LAYOUTS_H
 #define CX4FW_LAYOUTS_H
 
@@ -44,19 +44,32 @@ extern "C" {
 #endif
 
 #include "adb_to_c_utils.h"/* Description -   */
+/* Size in bytes - 8 */
+struct cx4fw_uint64 {
+/*---------------- DWORD[0] (Offset 0x0) ----------------*/
+	/* Description -  */
+	/* 0.0 - 4.31 */
+	 u_int32_t hi;
+/*---------------- DWORD[1] (Offset 0x4) ----------------*/
+	/* Description -  */
+	/* 4.0 - 8.31 */
+	 u_int32_t lo;
+};
+
+/* Description -   */
 /* Size in bytes - 16 */
 struct cx4fw_uid_entry {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description - Number of allocated UIDs in this entry */
-	/* 0x0.0 - 0x0.7 */
+	/* 0.0 - 0.7 */
 	 u_int8_t num_allocated;
 	/* Description - Step size by which to derive the UIDs for this entry
 See struct description */
-	/* 0x0.8 - 0x0.15 */
+	/* 0.8 - 0.15 */
 	 u_int8_t step;
 /*---------------- DWORD[2] (Offset 0x8) ----------------*/
 	/* Description - For MACs, the upper 16 bits in the 'hi' dword are reserved */
-	/* 0x8.0 - 0x10.31 */
+	/* 8.0 - 16.31 */
 	 u_int64_t uid;
 };
 
@@ -66,11 +79,11 @@ struct cx4fw_guids {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description - UIDs (MACs and GUIDs) Allocation Entry.
 guids, is used for system GUID, node GUID and port GUID of port 0. ;/Multiple UIDs can be assigned to a single port, to be used for multiple virtual guests, multi host and managment */
-	/* 0x0.0 - 0x10.31 */
+	/* 0.0 - 16.31 */
 	 struct cx4fw_uid_entry guids;
 /*---------------- DWORD[4] (Offset 0x10) ----------------*/
 	/* Description -  */
-	/* 0x10.0 - 0x20.31 */
+	/* 16.0 - 32.31 */
 	 struct cx4fw_uid_entry macs;
 };
 
@@ -79,11 +92,11 @@ guids, is used for system GUID, node GUID and port GUID of port 0. ;/Multiple UI
 struct cx4fw_operation_key {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description -  */
-	/* 0x0.0 - 0x0.15 */
+	/* 0.0 - 0.15 */
 	 u_int16_t key_modifier;
 /*---------------- DWORD[2] (Offset 0x8) ----------------*/
 	/* Description -  */
-	/* 0x8.0 - 0x10.31 */
+	/* 8.0 - 16.31 */
 	 u_int64_t key;
 };
 
@@ -92,22 +105,22 @@ struct cx4fw_operation_key {
 struct cx4fw_mfg_info {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description -  */
-	/* 0x0.24 - 0x10.23 */
+	/* 0.24 - 16.23 */
 	 char psid[17];
 /*---------------- DWORD[7] (Offset 0x1c) ----------------*/
 	/* Description - When this bit is set, the GUIDs should be taken from the device_info node.
 When this bit is cleared, the GUIDs should be taken from the mfg_info node. */
-	/* 0x1c.0 - 0x1c.0 */
+	/* 28.0 - 28.0 */
 	 u_int8_t guids_override_en;
 	/* Description - MFG_INFO section minor version */
-	/* 0x1c.16 - 0x1c.23 */
+	/* 28.16 - 28.23 */
 	 u_int8_t minor_version;
 	/* Description - MFG_INFO section major version */
-	/* 0x1c.24 - 0x1c.31 */
+	/* 28.24 - 32.31 */
 	 u_int8_t major_version;
 /*---------------- DWORD[8] (Offset 0x20) ----------------*/
 	/* Description -  */
-	/* 0x20.0 - 0x60.31 */
+	/* 32.0 - 96.31 */
 	 struct cx4fw_guids guids;
 };
 
@@ -116,60 +129,43 @@ When this bit is cleared, the GUIDs should be taken from the mfg_info node. */
 struct cx4fw_device_info {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description -  */
-	/* 0x0.0 - 0x4.31 */
+	/* 0.0 - 4.31 */
 	 u_int32_t signature0;
 /*---------------- DWORD[1] (Offset 0x4) ----------------*/
 	/* Description -  */
-	/* 0x4.0 - 0x8.31 */
+	/* 4.0 - 8.31 */
 	 u_int32_t signature1;
 /*---------------- DWORD[2] (Offset 0x8) ----------------*/
 	/* Description -  */
-	/* 0x8.0 - 0xc.31 */
+	/* 8.0 - 12.31 */
 	 u_int32_t signature2;
 /*---------------- DWORD[3] (Offset 0xc) ----------------*/
 	/* Description -  */
-	/* 0xc.0 - 0x10.31 */
+	/* 12.0 - 16.31 */
 	 u_int32_t signature3;
 /*---------------- DWORD[4] (Offset 0x10) ----------------*/
 	/* Description - Format version for this struct */
-	/* 0x10.0 - 0x10.7 */
+	/* 16.0 - 16.7 */
 	 u_int8_t minor_version;
 	/* Description - Format version for this struct */
-	/* 0x10.8 - 0x10.16 */
+	/* 16.8 - 16.16 */
 	 u_int16_t major_version;
 /*---------------- DWORD[8] (Offset 0x20) ----------------*/
 	/* Description -  */
-	/* 0x20.0 - 0x60.31 */
+	/* 32.0 - 96.31 */
 	 struct cx4fw_guids guids;
 /*---------------- DWORD[27] (Offset 0x6c) ----------------*/
 	/* Description -  */
-	/* 0x6c.0 - 0x6c.15 */
+	/* 108.0 - 108.15 */
 	 u_int16_t vsd_vendor_id;
 /*---------------- DWORD[28] (Offset 0x70) ----------------*/
 	/* Description -  */
-	/* 0x70.24 - 0x140.23 */
+	/* 112.24 - 320.23 */
 	 char vsd[209];
 /*---------------- DWORD[88] (Offset 0x160) ----------------*/
 	/* Description -  */
-	/* 0x160.0 - 0x1a0.31 */
+	/* 352.0 - 416.31 */
 	 struct cx4fw_operation_key keys[4];
-};
-
-/* Description -   */
-/* Size in bytes - 320 */
-struct cx4fw_image_signature {
-/*---------------- DWORD[0] (Offset 0x0) ----------------*/
-	/* Description - time based UUID for this signature */
-	/* 0x0.0 - 0x10.31 */
-	 u_int32_t signature_uuid[4];
-/*---------------- DWORD[4] (Offset 0x10) ----------------*/
-	/* Description - The UUID of the keypair used for signing this file */
-	/* 0x10.0 - 0x20.31 */
-	 u_int32_t keypair_uuid[4];
-/*---------------- DWORD[8] (Offset 0x20) ----------------*/
-	/* Description - The signature itself */
-	/* 0x20.0 - 0x120.31 */
-	 u_int32_t signature[64];
 };
 
 /* Description -   */
@@ -177,21 +173,25 @@ struct cx4fw_image_signature {
 union cx4fw_cx4fw_Nodes {
 /*---------------- DWORD[0] (Offset 0x0) ----------------*/
 	/* Description -  */
-	/* 0x0.0 - 0x140.31 */
-	 struct cx4fw_image_signature image_signature;
-	/* Description -  */
-	/* 0x0.0 - 0x200.31 */
+	/* 0.0 - 512.31 */
 	 struct cx4fw_device_info device_info;
 	/* Description -  */
-	/* 0x0.0 - 0x140.31 */
+	/* 0.0 - 320.31 */
 	 struct cx4fw_mfg_info mfg_info;
 	/* Description -  */
-	/* 0x0.0 - 0x40.31 */
+	/* 0.0 - 64.31 */
 	 struct cx4fw_guids guids;
 };
 
 
 /*================= PACK/UNPACK/PRINT FUNCTIONS ======================*/
+/* uint64 */
+void cx4fw_uint64_pack(const struct cx4fw_uint64 *ptr_struct, u_int8_t* ptr_buff);
+void cx4fw_uint64_unpack(struct cx4fw_uint64 *ptr_struct, const u_int8_t* ptr_buff);
+void cx4fw_uint64_print(const struct cx4fw_uint64 *ptr_struct, FILE* file, int indent_level);
+int cx4fw_uint64_size(void);
+#define CX4FW_UINT64_SIZE    (0x8)
+void cx4fw_uint64_dump(const struct cx4fw_uint64 *ptr_struct, FILE* file);
 /* uid_entry */
 void cx4fw_uid_entry_pack(const struct cx4fw_uid_entry *ptr_struct, u_int8_t* ptr_buff);
 void cx4fw_uid_entry_unpack(struct cx4fw_uid_entry *ptr_struct, const u_int8_t* ptr_buff);
@@ -227,13 +227,6 @@ void cx4fw_device_info_print(const struct cx4fw_device_info *ptr_struct, FILE* f
 int cx4fw_device_info_size(void);
 #define CX4FW_DEVICE_INFO_SIZE    (0x200)
 void cx4fw_device_info_dump(const struct cx4fw_device_info *ptr_struct, FILE* file);
-/* image_signature */
-void cx4fw_image_signature_pack(const struct cx4fw_image_signature *ptr_struct, u_int8_t* ptr_buff);
-void cx4fw_image_signature_unpack(struct cx4fw_image_signature *ptr_struct, const u_int8_t* ptr_buff);
-void cx4fw_image_signature_print(const struct cx4fw_image_signature *ptr_struct, FILE* file, int indent_level);
-int cx4fw_image_signature_size(void);
-#define CX4FW_IMAGE_SIGNATURE_SIZE    (0x140)
-void cx4fw_image_signature_dump(const struct cx4fw_image_signature *ptr_struct, FILE* file);
 /* cx4fw_Nodes */
 void cx4fw_cx4fw_Nodes_pack(const union cx4fw_cx4fw_Nodes *ptr_struct, u_int8_t* ptr_buff);
 void cx4fw_cx4fw_Nodes_unpack(union cx4fw_cx4fw_Nodes *ptr_struct, const u_int8_t* ptr_buff);

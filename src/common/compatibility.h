@@ -40,7 +40,7 @@
 
 #include <stdio.h>
 
-#if defined(__ia64__) || defined(__x86_64__) || defined(__PPC64__) || defined(__arm__)
+#if defined(__ia64__) || defined(__x86_64__) || defined(__PPC64__)
     #define U64L       "l"
 #else
     #define U64L       "ll"
@@ -55,14 +55,12 @@
 #       define ARCH_x86_64
 #   elif defined(__ia64__)
 #       define ARCH_ia64
-#   elif defined(__PPC64__) || defined(__s390x__)
+#   elif defined(__PPC64__)
 #       define ARCH_ppc64
 #   elif defined(__PPC__)
 #       define ARCH_ppc
 #   elif defined(__aarch64__)
 #       define ARCH_arm64
-#   elif defined(__arm__)
-#       define ARCH_arm6l
 #   else
 #       error Unknown CPU architecture using the linux OS
 #   endif
@@ -94,14 +92,14 @@
 #define U16H_FMT    "0x%04x"
 #define U8H_FMT     "0x%02x"
 
-#if defined(ARCH_x86) || defined(ARCH_ppc) || defined(UEFI_BUILD) || defined(ARCH_arm6l)
+#if defined(ARCH_x86) || defined(ARCH_ppc) || defined(UEFI_BUILD)
 #   if defined(__MINGW32__) || defined(__MINGW64__)
 #       include <inttypes.h>
-#       define U64D_FMT    "0x%" PRId64
-#       define U64H_FMT    "0x%" PRIx64
-#       define U64H_FMT_GEN "" PRIx64
-#       define U48H_FMT    "0x%" PRIx64
-#       define U64D_FMT_GEN "" PRId64
+#       define U64D_FMT    "0x%"PRId64
+#       define U64H_FMT    "0x%"PRIx64
+#       define U64H_FMT_GEN ""PRIx64
+#       define U48H_FMT    "0x%"PRIx64
+#       define U64D_FMT_GEN ""PRId64
 #   else
 #       define U64D_FMT     "%llu"
 #       define U64H_FMT     "0x%016llx"
@@ -118,6 +116,18 @@
 #else
 #   error Unknown architecture
 #endif  /* ARCH */
+
+
+/* define msleep(x) - sleeps for x milliseconds */
+#if defined(_WIN32) || defined(__MINGW32__) || defined(__MINGW64__)
+    #include <Winsock2.h>
+    #include <winsock2.h>
+    #include <windows.h>
+    #define msleep(x)   Sleep(x)
+#else
+    #include <unistd.h>
+    #define msleep(x)   usleep(((unsigned long)x)*1000)
+#endif
 
 /*
  * Only for architectures which can't do swab by themselves
@@ -146,23 +156,13 @@
 /*
  * Linux
  */
-#if defined(__linux) || defined(__FreeBSD__)
+#if defined(linux) || defined(__FreeBSD__)
 // #include <asm/byteorder.h>
     #include <unistd.h>
     #include <sys/types.h>
 
     #if defined (__FreeBSD__)
     #include <sys/endian.h>
-    // WA: on FBSD the BYTE ORDER AND ENDIANESS names are different
-    #ifndef __BYTE_ORDER
-        #define __BYTE_ORDER _BYTE_ORDER
-    #endif
-    #ifndef __LITTLE_ENDIAN
-        #define __LITTLE_ENDIAN _LITTLE_ENDIAN
-    #endif
-    #ifndef __BIG_ENDIAN
-        #define __BIG_ENDIAN _BIG_ENDIAN
-    #endif
     #else
     #include <endian.h>
     #endif
@@ -245,7 +245,6 @@
     #include <windows.h>
     #include <io.h>
 
-
     #define __LITTLE_ENDIAN 1234
     #define __BIG_ENDIAN 4321
     #define __BYTE_ORDER __LITTLE_ENDIAN
@@ -264,7 +263,7 @@
     #define __cpu_to_le16(x) (x)
 
 
-    #if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__) || defined(__MINGW64__)
+    #if defined(__MINGW32__) || defined(__MINGW64__)
         #include <stdint.h>
         #ifndef   MFT_TOOLS_VARS
             #define MFT_TOOLS_VARS
@@ -274,12 +273,7 @@
             typedef uint64_t u_int64_t;
         #endif
         #include <string.h>      // Get a define for strcasecmp
-        #if defined(_MSC_VER)
-            typedef size_t ssize_t;
-
-            #define strcasecmp  _stricmp
-            #define strncasecmp _strnicmp
-        #endif
+        // #define usleep(x) Sleep((x + 999)/1000)
 
     #else
         typedef unsigned __int8  u_int8_t;
@@ -399,13 +393,6 @@ typedef uint8_t  u_int8_t;
 
 #endif
 
-/* define msleep(x) - sleeps for x milliseconds */
-#if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__) || defined(__MINGW64__)
-    #define msleep(x)   Sleep(x)
-#else
-    #define msleep(x)   usleep(((unsigned long)x)*1000)
-#endif
-
 // Convert BYTES - DWORDS with MEMCPY BE
 #define BYTES_TO_DWORD_BE(dw_dest, byte_src) do {   u_int32_t tmp;\
                                                     memcpy(&tmp, byte_src, 4);\
@@ -434,21 +421,6 @@ typedef uint8_t  u_int8_t;
     #define ROOT_PATH "/opt/mellanox/"
 #else
     #define ROOT_PATH "/"
-#endif
-
-#ifndef IN
-/** Function Parameter Direction: INPUT only */
-#define IN
-#endif
-
-#ifndef OUT
-/** Function Parameter Direction: OUTPUT only */
-#define OUT
-#endif
-
-#ifndef INOUT
-/** Function Parameter Direction: INPUT & OUTPUT */
-#define INOUT
 #endif
 
 #endif

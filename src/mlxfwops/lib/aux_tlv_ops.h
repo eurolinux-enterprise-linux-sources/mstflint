@@ -46,7 +46,7 @@ typedef enum {
     TS_OLD_TIMESTAMP,
     TS_UNSUPPORTED_ICMD_VERSION,
     // image related errors,
-    TS_TLV_CRC_MISMATCH,
+    TS_TLV_CRC_MISSMATCH,
     TS_TLV_PARSE_ERROR,
     TS_NO_TLV_SECTION_FOUND,
     TS_FAILED_TO_OPEN_FILE,
@@ -64,13 +64,13 @@ typedef struct aux_tlv {
 } aux_tlv_t;
 
 
-class ImageTlvOps : public FlintErrMsg
+class ImageTlvOps : public ErrMsg
 {
 public:
-    ImageTlvOps(const char* fname, bool readOnly=false) : FlintErrMsg() , _fname(fname), _tlvSectionFound(false),
+    ImageTlvOps(const char* fname, bool readOnly=false) : ErrMsg() , _fname(fname), _tlvSectionFound(false),
                                                           _tlvSectionFilePos(0), _initialized(false),
                                                           _readOnly(readOnly){}
-    ImageTlvOps(u_int8_t* buf, unsigned int size) : FlintErrMsg() , _fname((const char*)NULL),
+    ImageTlvOps(u_int8_t* buf, unsigned int size) : ErrMsg() , _fname((const char*)NULL),
                                                     _tlvSectionFound(false), _tlvSectionFilePos(0),
                                                     _initialized(false), _readOnly(true)
                                                     {
@@ -110,10 +110,10 @@ private:
 };
 
 
-class TimeStampIFC : public FlintErrMsg
+class TimeStampIFC : public ErrMsg
 {
 public:
-    TimeStampIFC() : FlintErrMsg() {};
+    TimeStampIFC() : ErrMsg() {};
     virtual ~TimeStampIFC(){};
     static TimeStampIFC* getIFC(mfile* mf);
     static TimeStampIFC* getIFC(const char* fname, u_int32_t lastFWAddr=0);

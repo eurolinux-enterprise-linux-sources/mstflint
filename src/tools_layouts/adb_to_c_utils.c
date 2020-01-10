@@ -29,13 +29,12 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
- 
 
 /***
-         *** This file was generated at "2016-09-24 01:49:33"
-         *** by:
-         ***    > /mswg/release/eat_me/last_release/adabe_plugins/adb2c/adb2pack.py --input adb/register_access/register_access_sib.adb --file-prefix register_access_sib --prefix register_access_sib_
-         ***/
+ *** This file was generated at "2016-04-22 14:35:59"
+ *** by:
+ ***    > /mswg/release/eat_me/last_release/adabe_plugins/adb2c/adb2pack.py --input adb/tools_open/tools_open.adb --file-prefix tools_open --prefix tools_open_
+ ***/
 
 #include <assert.h>
 #include "adb_to_c_utils.h"
@@ -134,9 +133,7 @@ void adb2c_push_bits_to_buff_le(u_int8_t *buff, u_int32_t bit_offset, u_int32_t 
     //going over all bits in field
     while (i < field_size)
     {
-        to_push = ADB2C_MIN(8 - byte_n_offset, (field_size - i) % 8);
-        if (to_push == 0)
-            to_push += 8;
+        to_push = ADB2C_MIN(8 - byte_n_offset, field_size - i);
         i += to_push;
         ADB2C_INSERTF_8(ADB2C_BYTE_N(buff, byte_n), 8U - to_push - byte_n_offset, field_value, field_size - i, to_push);
         byte_n_offset  = 0;     //(byte_n_offset + to_push) % 8U;
@@ -230,9 +227,7 @@ u_int32_t adb2c_pop_bits_from_buff_le(const u_int8_t *buff, u_int32_t bit_offset
     //going over all bits in field
     while (i < field_size)
     {
-        to_pop =  ADB2C_MIN(8 - byte_n_offset, (field_size - i) % 8);
-        if (to_pop == 0)
-            to_pop += 8;
+        to_pop =  ADB2C_MIN(8 - byte_n_offset, field_size - i);
         i += to_pop;
         ADB2C_INSERTF_8(field_32, field_size - i, ADB2C_BYTE_N(buff, byte_n), 8 - to_pop - byte_n_offset, to_pop);
         byte_n_offset  = 0;     //(byte_n_offset + to_pop) % 8;

@@ -39,12 +39,7 @@
 #include <compatibility.h>
 #include <mtcr.h>
 
-#include "mlxcfg_4thgen_commander.h"
-//#include "mlxcfg_lib.h"
-#include "mlxcfg_commander.h"
-#include "mlxcfg_view.h"
-
-#define DB_NAME ""
+#include "mlxcfg_lib.h"
 
 typedef enum {
     Mc_Set,
@@ -52,44 +47,125 @@ typedef enum {
     Mc_Reset,
     Mc_Clr_Sem,
     Mc_Set_Raw,
-    Mc_Backup,
-    Mc_ShowConfs,
-    Mc_GenTLVsFile,
-    Mc_GenXMLTemplate,
-    Mc_Raw2XML,
-    Mc_XML2Raw,
-    Mc_XML2Bin,
-    Mc_CreateConf,
-    Mc_Apply,
     Mc_UnknownCmd
 } mlxCfgCmd;
 
+typedef enum {
+    MLX_CFG_OK,
+    MLX_CFG_OK_EXIT,
+    MLX_CFG_ABORTED,
+    MLX_CFG_ERROR,
+    MLX_CFG_ERROR_EXIT
+} mlxCfgStatus;
+
 using namespace std;
+
+class MlxCfgParamParser
+{
+public:
+    MlxCfgParamParser(): _param(Mcp_Last), _name(), _desc(){}
+    MlxCfgParamParser(mlxCfgParam param, string name, string desc, map<string, u_int32_t> strMap)
+        : _param(param), _name(name), _desc(desc), _strMap(strMap){}
+    MlxCfgParamParser(mlxCfgParam param, string name, string desc, string allowedValues) : _param(param),
+            _name(name), _desc(desc), _allowedValues(allowedValues){}
+
+    ~MlxCfgParamParser() {}
+
+    mlxCfgStatus parseUserInput(string input, u_int32_t& val);
+
+    void printShortDesc();
+    void printLongDesc();
+
+    string getName() {return _name;}
+    mlxCfgParam getParam() {return _param;}
+
+    string getStrVal(u_int32_t val);
+
+private:
+    mlxCfgParam _param;
+    string _name; //param name for example: LINK_TYPE_P1
+    string _desc; //for example: 4th generation devices only
+    string _allowedValues;
+    map<string, u_int32_t> _strMap; //map strings to values, for example: {{'InfiniBand',1},{'Ethernet',2},{'VPI',3}}
+
+
+    void printShortDescAux();
+    string getShortDescStrAux();
+    void splitAndPrintDesc(string desc);
+    bool compareVal(string a, string b);
+
+};
+
+class MlxCfgInfo
+{
+public:
+    MlxCfgInfo(string name, string title, map<mlxCfgParam, MlxCfgParamParser> params) :
+        _name(name), _title(title), _params(params){};
+
+    ~MlxCfgInfo() {}
+
+    void printShortDesc();
+    void printLongDesc();
+
+    mlxCfgStatus getParamParser(mlxCfgParam, MlxCfgParamParser&);
+    mlxCfgStatus getParamParser(string, MlxCfgParamParser&);
+    string getName() { return _name; }
+
+private:
+    string _name; //for example: VPI Settings
+    string _title; //for example: Control network link type
+    map<mlxCfgParam, MlxCfgParamParser> _params; //for example: {{LINK_TYPE_P1,*},{LINK_TYPE_P2,*}}
+    vector<MlxCfgParamParser> getParamsMapValues();
+};
+
+class MlxCfgAllInfo
+{
+public:
+    MlxCfgAllInfo();
+
+    ~MlxCfgAllInfo() {}
+
+    void printShortDesc();
+    void printLongDesc();
+
+    mlxCfgStatus parseParam(string tag, string strval, u_int32_t& val, mlxCfgParam& param);
+    mlxCfgStatus getParamParser(mlxCfgParam p, MlxCfgParamParser& paramParser);
+
+    vector<MlxCfgInfo> _allInfo;
+
+private:
+    MlxCfgInfo createPciSettings();
+    MlxCfgInfo createIBDynamicallyConnect();
+    MlxCfgInfo createInfinibandBootSettings();
+    MlxCfgInfo createInternalSettings();
+    MlxCfgInfo createPrebootBootSettings();
+    MlxCfgInfo createRoCECongestionControlECN();
+    MlxCfgInfo createRoCEV1_5NextProtocol();
+    MlxCfgInfo createRoCECongestionControlParameters();
+    MlxCfgInfo createVPISettings();
+    MlxCfgInfo createWakeOnLAN();
+    MlxCfgInfo createExternalPort();
+    MlxCfgInfo createBootSettingsExt();
+};
 
 class MlxCfgParams
 {
 public:
-    MlxCfgParams() : device(), rawTlvFile(), NVInputFile(), NVOutputFile(),
-                     dbName(DB_NAME), privPemFile(), keyPairUUID(),
-                     allAttrs(false), cmd(Mc_UnknownCmd), yes(false),
-                     force(false), enableVerbosity(false) {}
+    MlxCfgParams() : device(), rawTlvFile(), cmd(Mc_UnknownCmd), yes(false), force(false), showDefault(false) {}
     ~MlxCfgParams() {}
 
     std::string device;
     std::string rawTlvFile;
-    std::string NVInputFile;
-    std::string NVOutputFile;
-    std::string dbName;
-    std::string privPemFile;
-    std::string keyPairUUID;
-    bool allAttrs;
     mlxCfgCmd cmd;
     bool yes;
-    std::vector<ParamView> setParams;
+    std::vector<cfgInfo> params;
+    static std::string param2str[Mcp_Last];
     bool force;// ignore parameter checks
-    bool enableVerbosity;
+    bool showDefault;
 
+    u_int32_t getParamVal(mlxCfgParam p);
 };
+
 
 class MlxCfg
 {
@@ -100,26 +176,19 @@ public:
 private:
 
     // User interface and parsing methods
-    void printHelp();
-    mlxCfgStatus showDevConfs();
+    void printHelp(bool longDesc=false);
     void printVersion();
     void printUsage();
-    void printOpening(const char* dev, int devIndex);
-    void printConfHeader(bool showDefualt, bool showNew, bool showCurrent);
     mlxCfgStatus parseArgs(int argc, char* argv[]);
     //Helper functions for parse args
-    mlxCfgStatus extractNVInputFile(int argc, char* argv[]);
-    mlxCfgStatus extractNVOutputFile(int argc, char* argv[]);
-    mlxCfgStatus extractSetCfgArgs(int argc, char* argv[]);
-    mlxCfgStatus extractQueryCfgArgs(int argc, char* argv[]);
-
-    bool tagExsists(string tag);
+    mlxCfgStatus processArg(std::string tag, u_int32_t val);
+    mlxCfgStatus extractCfgArgs(int argc, char* argv[]);
+    bool tagExsists(mlxCfgParam tag);
     const char* getDeviceName(const char* dev);
 
     // Query cmd
     mlxCfgStatus queryDevsCfg();
     mlxCfgStatus queryDevCfg(const char* dev, const char* pci=(const char*)NULL, int devIndex=1, bool printNewCfg=false);
-    mlxCfgStatus queryDevCfg(Commander* commander, const char* dev, const char* pci=(const char*)NULL, int devIndex=1, bool printNewCfg=false);
 
     // Set cmd
     mlxCfgStatus setDevCfg();
@@ -128,29 +197,11 @@ private:
     mlxCfgStatus resetDevCfg(const char* dev);
     // Set Raw TLV file
     mlxCfgStatus setDevRawCfg();
-    mlxCfgStatus backupCfg();
     mlxCfgStatus tlvLine2DwVec(const std::string& tlvStringLine, std::vector<u_int32_t>& tlvVec);
 
     mlxCfgStatus clrDevSem();
-
-    mlxCfgStatus readBinFile(string fileName, vector<u_int32_t>& buff);
-    mlxCfgStatus readNVInputFile(vector<u_int32_t>& buff);
-    mlxCfgStatus readNVInputFile(string& content);
-    mlxCfgStatus readNVInputFile(vector<string>& lines);
-
-    mlxCfgStatus writeNVOutputFile(vector<u_int32_t> content);
-    mlxCfgStatus writeNVOutputFile(string content);
-    mlxCfgStatus writeNVOutputFile(vector<string> lines);
-
-    mlxCfgStatus genTLVsFile();
-    mlxCfgStatus genXMLTemplate();
-    mlxCfgStatus raw2XMLAux(bool isBin);
-    mlxCfgStatus raw2XML();
-    mlxCfgStatus XML2RawAux(bool isBin);
-    mlxCfgStatus XML2Raw();
-    mlxCfgStatus XML2Bin();
-    mlxCfgStatus createConf();
-    mlxCfgStatus apply();
+    //
+    mlxCfgStatus test(const char* dev);
 
     bool askUser(const char* question);
     mlxCfgStatus err(bool report, const char* errMsg, ...);
@@ -161,5 +212,8 @@ private:
     MlxCfgAllInfo _allInfo;
 
 };
+
+
+
 
 #endif /* MLXCFG_UI_H_ */

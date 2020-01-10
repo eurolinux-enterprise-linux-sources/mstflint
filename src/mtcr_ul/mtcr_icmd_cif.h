@@ -1,5 +1,4 @@
-/*
- * Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+/* Copyright (c) 2013 Mellanox Technologies Ltd.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -28,6 +27,9 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
+ *  Version: $Id$
+ *
  */
 
 #ifndef _MTCR_ICMD_CIF     /* guard */
@@ -37,13 +39,14 @@
 extern "C" {
 #endif
 
+
+
+
 #include <compatibility.h>
-#include <mtcr.h>
 #ifdef MST_UL
-#include "mtcr_mf.h"
 #include <mtcr_int_defs.h>
 #endif
-
+#include <mtcr.h>
 
 /* --------- Typedefs & Constants ---------------------------------- */
 
@@ -78,7 +81,7 @@ void icmd_close(mfile *mf);
  * @return          One of the GCIF_STATUS_* values, or a raw
  *                  status value (as indicated in cr-space).
  **/
-int icmd_send_command_int(mfile     *mf,
+int icmd_send_command_int(mfile		*mf,
                       IN    int     opcode,
                       INOUT void*   data,
                       IN    int     write_data_size,

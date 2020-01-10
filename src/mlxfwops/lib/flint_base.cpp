@@ -41,7 +41,7 @@
 
 
 
-void FlintErrMsg::err_clear(){
+void ErrMsg::err_clear(){
     delete [] _err;
     _err = 0;
 }
@@ -159,7 +159,7 @@ void report_warn(const char *format, ...)
 #endif
 }
 
-bool FlintErrMsg::errmsg(const char *format, ...) {
+bool ErrMsg::errmsg(const char *format, ...) {
     va_list   args;
 
     char* prev_err = _err;
@@ -173,7 +173,7 @@ bool FlintErrMsg::errmsg(const char *format, ...) {
     return false;
 }
 
-bool FlintErrMsg::errmsg(int errorCode, const char *format, ...) {
+bool ErrMsg::errmsg(int errorCode, const char *format, ...) {
     va_list   args;
 
     char* prev_err = _err;
@@ -187,7 +187,7 @@ bool FlintErrMsg::errmsg(int errorCode, const char *format, ...) {
     return false;
 }
 
-bool FlintErrMsg::errmsgAdv(bool showAdv, const char *normalFmt, const char *AdvFmt, ...) {
+bool ErrMsg::errmsgAdv(bool showAdv, const char *normalFmt, const char *AdvFmt, ...) {
 	// args should only apply to advanced format (i.e normalFmt does not contain %<char>)
     va_list   args;
     char errFmt[1024];
@@ -211,7 +211,7 @@ bool FlintErrMsg::errmsgAdv(bool showAdv, const char *normalFmt, const char *Adv
     return false;
 }
 
-int FlintErrMsg::errmsgWCode(int errorCode, const char *format, ...) {
+int ErrMsg::errmsgWCode(int errorCode, const char *format, ...) {
     va_list   args;
 
     char* prev_err = _err;
@@ -224,6 +224,7 @@ int FlintErrMsg::errmsgWCode(int errorCode, const char *format, ...) {
     _errCode = errorCode;
     return errorCode;
 }
+
 
 ////////////////////////////////////////////////////////////////////////
 void Crc16::add(u_int32_t o)

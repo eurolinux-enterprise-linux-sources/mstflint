@@ -71,7 +71,7 @@ int sx_st_block_access(mfile *mf, u_int32_t flash_addr, u_int8_t bank, u_int32_t
             mfba.data[i] = __le32_to_cpu(*((u_int32_t*)&(data[4*i])));
         }
     }
-    rc = reg_access_mfba (mf, (reg_access_method_t) method, &mfba); CHECK_RC(MError2MfError((MError)rc));
+    rc = reg_access_mfba (mf, (reg_access_method_t) method, &mfba); CHECK_RC(MError2MfError(rc));
 
     // Get data from mfba
     if (method == REG_ACCESS_METHOD_GET) {
@@ -99,72 +99,74 @@ int common_erase_sector(mfile *mf, u_int32_t addr, u_int8_t flash_bank, u_int32_
     return MError2MfError(reg_access_mfbe (mf, REG_ACCESS_METHOD_SET, &mfbe));
 }
 
-int run_mfpa_command(mfile *mf, u_int8_t access_cmd, mfpa_command_args* mfpa_args)
+int run_mfpa_command(mfile *mf, u_int8_t access_cmd, u_int8_t flash_bank, u_int32_t boot_address,\
+                     u_int32_t *jedec_p, int *num_of_banks, u_int32_t* fw_sector_size, u_int8_t* support_sub_and_sector)
 {
-	struct tools_open_mfpa    mfpa;
+	struct register_access_mfpa    mfpa;
     int rc;
 
     memset(&mfpa, 0, sizeof(mfpa));
-    mfpa.fs = mfpa_args->flash_bank;
+    mfpa.fs = flash_bank;
 
     if (access_cmd == REG_ACCESS_METHOD_SET) {
-        mfpa.boot_address = mfpa_args->boot_address;
+        mfpa.boot_address = boot_address;
     }
-    rc = MError2MfError(reg_access_mfpa_new(mf, (reg_access_method_t)access_cmd, &mfpa));
+    rc = MError2MfError(reg_access_mfpa (mf, access_cmd, &mfpa));
 
     if (rc && rc != MFE_REG_ACCESS_BAD_PARAM) {
         // if rc is REG_ACCESS_BAD_PARAM it means we dont have that flash bank connected (no need to fail)
         return rc;
     }
 
-    if (access_cmd == REG_ACCESS_METHOD_GET ) {
+    if (access_cmd == REG_ACCESS_METHOD_GET && jedec_p != NULL) {
         // swap bytes as they are inverted
-        mfpa_args->jedec_id = ___my_swab32(mfpa.jedec_id);
+        *jedec_p = ___my_swab32(mfpa.jedec_id);
         // HACK: FW had a bug and returned the same jedec-ID even there was no flash, so when flash doesn't exist jedec will be modified to 0xffffffff
-        if (mfpa_args->flash_bank >= mfpa.flash_num || rc == MFE_REG_ACCESS_BAD_PARAM) {
-            mfpa_args->jedec_id = 0xffffffff;
+        if (flash_bank >= mfpa.flash_num || rc == MFE_REG_ACCESS_BAD_PARAM) {
+            *jedec_p = 0xffffffff;
         }
+    }
+    if (num_of_banks != NULL) {
+        *num_of_banks = mfpa.flash_num;
+    }
 
-
-        mfpa_args->num_of_banks = mfpa.flash_num;
-
+    if (fw_sector_size != NULL) {
         if (mfpa.sector_size) {
-            mfpa_args->fw_flash_sector_sz = 1 << mfpa.sector_size; // 2^log2_sector_size_in_KB
+            *fw_sector_size = 1 << mfpa.sector_size; // 2^log2_sector_size_in_KB
             // Hack: some CX3 FW has this number in KB, possible values : 4 or 64
-            if (mfpa_args->fw_flash_sector_sz == 4 || mfpa_args->fw_flash_sector_sz == 64 ) {
-                mfpa_args->fw_flash_sector_sz *= 1024;
+            if (*fw_sector_size == 4 || *fw_sector_size == 64 ) {
+                *fw_sector_size *= 1024;
             }
         } else {
-            mfpa_args->fw_flash_sector_sz = 0;
+            *fw_sector_size = 0;
         }
-        mfpa_args->supp_sub_and_sector_erase = mfpa.bulk_64kb_erase_en;
-        mfpa_args->supp_dummy_cycles =  EXTRACT(mfpa.capability_mask, 18, 1) & 0; // adrianc: no support from FW so i am not enabling this
-        mfpa_args->supp_quad_en =  EXTRACT(mfpa.capability_mask, 17, 1);
-        mfpa_args->supp_sector_write_prot = EXTRACT(mfpa.capability_mask, 16, 1) & mfpa.sector_wrp_en;
-        mfpa_args->supp_sub_sector_write_prot = EXTRACT(mfpa.capability_mask, 16, 1) & mfpa.sub_sector_wrp_en;
     }
+
+    if (support_sub_and_sector != NULL) {
+        *support_sub_and_sector = mfpa.bulk_64kb_erase_en;
+    }
+
     return MFE_OK;
 }
 
 int get_num_of_banks(mfile *mf)
 {
-    mfpa_command_args mfpa_args;
-    memset(&mfpa_args, 0, sizeof(mfpa_args));
-    int rc = run_mfpa_command(mf, REG_ACCESS_METHOD_GET, &mfpa_args);
+    int num_of_banks;
+    int rc = run_mfpa_command(mf, REG_ACCESS_METHOD_GET, 0, 0, NULL, &num_of_banks, NULL, NULL);
     if (rc) {
         return -1;
     }
-    return mfpa_args.num_of_banks;
+    return num_of_banks;
 }
 
-int com_get_jedec(mfile *mf, mfpa_command_args* mfpa_args)
+int com_get_jedec(mfile *mf, u_int8_t flash_bank, u_int32_t *jedec_p, u_int32_t* fw_flash_sector_size, u_int8_t* supp_sub_and_sector)
 {
-    return run_mfpa_command(mf, REG_ACCESS_METHOD_GET, mfpa_args);
+    return run_mfpa_command(mf, REG_ACCESS_METHOD_GET, flash_bank, 0, jedec_p, NULL, fw_flash_sector_size, supp_sub_and_sector);
 }
 
 /*
  * getters and setters for mfl->curr_bank
- * manily used to  monitor values mfl->curr_bank receives
+ * manily used to  monitor values mfl->curr_bank recieves
  * used for a verification hack to make sure facebook reset bug doesnt reproduce.
  * (bug where accessing gpio of flash bank 4 caused system reboot)
  */
@@ -254,7 +256,7 @@ MfError MError2MfError(MError rc) {
    case ME_ICMD_STATUS_IFC_BUSY:
 	   return MFE_CMDIF_TIMEOUT_ERR;
    case ME_ICMD_STATUS_ICMD_NOT_READY:
-	   return MFE_CMDIF_NOT_READY;
+	   return MFE_CMDIF_GO_BIT_BUSY;
    case ME_ICMD_UNSUPPORTED_ICMD_VERSION:
 	   return MFE_ICMD_NOT_SUPPORTED;
    case ME_ICMD_NOT_SUPPORTED:
@@ -299,8 +301,6 @@ MfError MError2MfError(MError rc) {
 
    case ME_CMDIF_UNKN_TLV:
        return MFE_CMDIF_UNKN_TLV;
-   case ME_CMDIF_BAD_OP:
-       return MFE_CMDIF_BAD_OP;
    default:
 	   break;
    }

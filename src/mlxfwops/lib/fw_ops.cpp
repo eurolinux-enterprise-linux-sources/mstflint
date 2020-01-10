@@ -38,14 +38,9 @@
 #include "flint_base.h"
 #include "flint_io.h"
 #include "fw_ops.h"
-#include "fs4_ops.h"
 #include "fs3_ops.h"
 #include "fs2_ops.h"
-#include "fsctrl_ops.h"
 
-#ifdef CABLES_SUPP
-#include "cablefw_ops.h"
-#endif
 
 #ifndef NO_MFA_SUPPORT
 #include <mfa.h>
@@ -53,13 +48,6 @@
 
 #define BAD_CRC_MSG "Bad CRC."
 extern const char* g_sectNames[];
-
-bool FwOperations::readBufAux(FBase& f, u_int32_t o, void * d, int l, const char*
-p) {
-    bool rc = true;
-    READBUF(f, o, d, l, p);
-    return rc;
-}
 
 #ifndef NO_MFA_SUPPORT
 
@@ -86,9 +74,6 @@ int FwOperations::getFileSignature(const char* fname)
     if (!strncmp(tmpb, "MFAR", 4)) {
         res = IMG_SIG_TYPE_MFA;
     }
-    if (!strncmp(tmpb, "MTCF", 4)) {
-        res = IMG_SIG_TYPE_CF;
-    }
 
 clean_up:
     fclose(fin);
@@ -113,74 +98,58 @@ int FwOperations::getBufferSignature(u_int8_t* buf, u_int32_t size)
     return res;
 }
 
-int FwOperations::getMfaImgInner(char* fileName, u_int8_t* mfa_buf, int size,
-                                 char *psid, u_int8_t **imgbuf, char* errBuf, int errBufSize)
+const char * FwOperations::err2str(int errNum)
 {
+    switch(errNum) {
+        case -4:
+            return "Found MFA(s) with higher Version, upgrade tool to work with it";
+        case -3:
+            return "File Signature is invalid";
+        default:
+            return "Failed to get MFA Image";
+    }
+}
+int FwOperations::getMfaImg(char* fileName, char *psid, u_int8_t **imgbuf)
+{
+    int res;
+    mfa_desc* mfa_d;
     int image_type = 1; //FW image
-    mfa_desc* mfa_d = NULL;
-    int res = -1;
-
-    // open mfa file
-    if (fileName) {
-        res = mfa_open_file(&mfa_d, fileName);
-    }
-    else if (mfa_buf && size != 0) {
-        res = mfa_open_buf(&mfa_d, mfa_buf, size);
-    }
-    else {
-        WriteToErrBuff(errBuf, "Interanl error: bad parameters to getMfaImg", errBufSize);
-        return res;
-    }
-
-    if (res){
-        res = res < 0 ? res : -1 * res;
-        WriteToErrBuff(errBuf, "Failed to open mfa file", errBufSize);
-        if (mfa_d) {
-            mfa_close(mfa_d);
-        }
-        return res;
-    }
 
     if (psid == NULL) {
-        WriteToErrBuff(errBuf,"Internal error: PSID must be supplied", errBufSize);
-        if (mfa_d) {
-            mfa_close(mfa_d);
-        }
         return -1; //No psid => no image
     }
 
-    // get appropriate image for requested PSID from mfa file
-    res = mfa_get_image(mfa_d, psid, image_type, (char*)"", imgbuf);
-
-    // if res != 0 there is an error
-    if (res) {
-        const char* errStr = mfa_get_last_error(mfa_d);
-        // if error field is empty return generic message
-        if (!errStr || strlen(errStr) == 0) {
-            errStr = "Failed to get MFA Image";
-        }
-
-        WriteToErrBuff(errBuf, errStr, errBufSize);
+    if ((res = mfa_open_file(&mfa_d, fileName))) {
+        res = res < 0 ? res : -1 * res;
+        return res;
     }
 
-    // close mfa file
+    res = mfa_get_image(mfa_d, psid, image_type, (char*)"", imgbuf);
+
     mfa_close(mfa_d);
     return res;
 }
 
-int FwOperations::getMfaImg(char* fileName, char *psid, u_int8_t **imgbuf, char* errBuf, int errBufSize)
+
+int FwOperations::getMfaImg(u_int8_t* mfa_buf, int size, char *psid, u_int8_t **imgbuf)
 {
-    return getMfaImgInner(fileName, NULL , 0,
-                          psid,  imgbuf, errBuf, errBufSize);
+    int res;
+    mfa_desc* mfa_d;
+    int image_type = 1; //FW image
+
+    if (psid == NULL) {
+        return -1; //No psid => no image
+    }
+    if ((res = mfa_open_buf(&mfa_d, mfa_buf, size))) {
+        res = res < 0 ? res : -1 * res;
+        return res;
+    }
+
+    res = mfa_get_image(mfa_d, psid, image_type, (char*)"", imgbuf);
+
+    mfa_close(mfa_d);
+    return res;
 }
-
-
-int FwOperations::getMfaImg(u_int8_t* mfa_buf, int size, char *psid, u_int8_t **imgbuf, char* errBuf, int errBufSize)
-{
-    return getMfaImgInner(NULL, mfa_buf, size,
-                          psid, imgbuf, errBuf, errBufSize);
-}
-
 #endif
 
 
@@ -213,10 +182,6 @@ void FwOperations::FwCleanUp()
     }
 }
 
-bool FwOperations::FwVerifyAdv(ExtVerifyParams& verifyParams)
-{
-    return FwVerify(verifyParams.verifyCallBackFunc, verifyParams.isStripedImage, verifyParams.showItoc, verifyParams.ignoreDToc);
-}
 
 void FwOperations::FwInitCom()
 {
@@ -233,27 +198,23 @@ void FwOperations::getSupporteHwId(u_int32_t **supportedHwId, u_int32_t &support
 
 bool FwOperations::checkBoot2(u_int32_t beg, u_int32_t offs, u_int32_t& next, bool fullRead, const char *pref, VerifyCallBack verifyCallBackFunc)
 {
-    u_int32_t size = 0x0;
+    u_int32_t    size;
 
-    char* pr = new char[strlen(pref) + 512];
+    // char         *pr = (char *)alloca(strlen(pref) + 512);
+    char pr[strlen(pref) + 512];
     sprintf(pr, "%s /0x%08x/ (BOOT2)", pref, offs+beg);
     // Size
-    if (!(*_ioAccess).read(offs + beg + 4, &size)) {
-        errmsg("%s - read error (%s)\n", pr, (*_ioAccess).err());
-        delete[] pr;
-        return false;
-    }
+    READ4((*_ioAccess), offs+beg+4, &size, pr);
     TOCPU1(size);
     if (size > 1048576 || size < 4) {
         report_callback(verifyCallBackFunc, "%s /0x%08x/ - unexpected size (0x%x)\n", pr, offs+beg+4, size);
-        delete[] pr;
         return false;
     }
     _fwImgInfo.bootSize = (size + 4) * 4;
 
     // Get absolute address on flash when checking BOOT2 for FS3 image format (for FS2 its always displayed as contiguous)
     // Adrianc: why dont we show them both in the same way when running verify.
-    u_int32_t boot2AbsAddr = ((this->FwType() == FIT_FS3 || this->FwType() == FIT_FS4) && _ioAccess->is_flash()) ? \
+    u_int32_t boot2AbsAddr = (this->FwType() == FIT_FS3 && _ioAccess->is_flash()) ? \
             _ioAccess->get_phys_from_cont(beg, _fwImgInfo.cntxLog2ChunkSize, (_fwImgInfo.imgStart != 0)) : beg;
 
     sprintf(pr, "%s /0x%08x-0x%08x (0x%06x)/ (BOOT2)", pref, offs+boot2AbsAddr,
@@ -261,15 +222,12 @@ bool FwOperations::checkBoot2(u_int32_t beg, u_int32_t offs, u_int32_t& next, bo
 
     if ((_ioAccess->is_flash() && fullRead == true) || !_ioAccess->is_flash()) {
         Crc16        crc;
-        u_int32_t* buff = new u_int32_t[size + 4];
-        bool rc = readBufAux((*_ioAccess), offs+beg, buff, size*4 + 16, pr);
-        if (!rc) {
-            delete[] pr;
-            delete[] buff;
-            return rc;
-        }
+        // u_int32_t    *buff = (u_int32_t*)alloca((size + 4)*sizeof(u_int32_t));
+        u_int32_t buff[size + 4];
+        READBUF((*_ioAccess), offs+beg, buff, size*4 + 16, pr);
         // we hold for FS3 an image cache so we selectevely update it in UpdateImgCache() call
         UpdateImgCache((u_int8_t*)buff, offs+beg, size*4 + 16);
+
         TOCPUn(buff, size+4);
         CRC1n(crc, buff, size+4);
         CRC1n(_ioAccess->get_image_crc(), buff, size+4);
@@ -278,11 +236,9 @@ bool FwOperations::checkBoot2(u_int32_t beg, u_int32_t offs, u_int32_t& next, bo
         crc.finish();
 
         u_int32_t crc_act = buff[size+3];
-        delete[] buff;
         if (crc.get() != crc_act) {
             report_callback(verifyCallBackFunc, "%s /0x%08x/ - wrong CRC (exp:0x%x, act:0x%x)\n",
                    pr, offs+beg, crc.get(), crc_act);
-            delete[] pr;
             return errmsg(MLXFW_BAD_CRC_ERR, BAD_CRC_MSG);
         }
         _ioAccess->get_image_crc() << crc_act;
@@ -294,7 +250,6 @@ bool FwOperations::checkBoot2(u_int32_t beg, u_int32_t offs, u_int32_t& next, bo
         }
     }
     next = offs + size*4 + 16;
-    delete[] pr;
     return true;
 } // checkBoot2
 
@@ -383,13 +338,6 @@ const u_int32_t FwOperations::_cntx_magic_pattern[4] = {
     0x4154BEEF
 };
 
-const u_int32_t FwOperations::_fs4_magic_pattern[4] = {
-    0x4D544657,
-    0xABCDEF00,
-    0xFADE1234,
-    0x5678DEAD
-};
-
 const u_int32_t FwOperations::_cntx_image_start_pos[FwOperations::CNTX_START_POS_SIZE] = {
     0,
     0x10000,
@@ -401,8 +349,7 @@ const u_int32_t FwOperations::_cntx_image_start_pos[FwOperations::CNTX_START_POS
     0x400000
 };
 
-bool FwOperations::FindMagicPattern(FBase* ioAccess, u_int32_t addr,
-        u_int32_t const cntx_magic_pattern[]) {
+bool FwOperations::CntxFindMagicPattern (FBase* ioAccess, u_int32_t addr) {
     if (addr + 16 > ioAccess->get_size()) {
         return false;
     }
@@ -410,7 +357,7 @@ bool FwOperations::FindMagicPattern(FBase* ioAccess, u_int32_t addr,
         u_int32_t w;
         READ4_NOERRMSG((*ioAccess), addr + i * 4, &w);
         TOCPU1(w);
-        if (w != cntx_magic_pattern[i]) {
+        if (w != _cntx_magic_pattern[i]) {
             //printf("-D- Looking for magic pattern %d addr %06x: Exp=%08x Act=%08x\n", i, addr + i * 4, _cntx_magic_pattern[i], w);
             return false;
         }
@@ -419,21 +366,19 @@ bool FwOperations::FindMagicPattern(FBase* ioAccess, u_int32_t addr,
     return true;
 }
 
+
+
 // FindAllImageStart
 // OUT: start_locations: set to the start addresses of the found image markers (in accending order)
 // OUT: found_images:    Number of found images (and number of valid entries in the start_locations array).
-bool FwOperations::FindAllImageStart (FBase* ioAccess,
-        u_int32_t start_locations[CNTX_START_POS_SIZE],
-        u_int32_t* found_images,
-        u_int32_t const cntx_magic_pattern[]) {
-
+bool FwOperations::CntxFindAllImageStart (FBase* ioAccess, u_int32_t start_locations[CNTX_START_POS_SIZE], u_int32_t* found_images) {
     int needed_pos_num;
 
     needed_pos_num = CNTX_START_POS_SIZE;
 
     if (ioAccess->is_flash()) {
-        if ( (((Flash*)ioAccess)->get_dev_id() == CX2_HW_ID) ||
-             (((Flash*)ioAccess)->get_dev_id() == IS4_HW_ID)) {
+        if ( (((Flash*)ioAccess)->get_dev_id() == 400) ||
+             (((Flash*)ioAccess)->get_dev_id() == 435)) {
             needed_pos_num = OLD_CNTX_START_POS_SIZE;
         }
     }
@@ -447,18 +392,19 @@ bool FwOperations::FindAllImageStart (FBase* ioAccess,
     }
 
     ioAccess->set_address_convertor(0,0);
-    if (found_images) {
-        *found_images = 0;
-        for (int i = 0; i < needed_pos_num; i++) {
-            if (FindMagicPattern(ioAccess, _cntx_image_start_pos[i], cntx_magic_pattern)) {
-                start_locations[*found_images] = _cntx_image_start_pos[i];
-                (*found_images)++;
-            }
+    *found_images = 0;
+    for (int i = 0; i < needed_pos_num; i++) {
+        if (CntxFindMagicPattern(ioAccess, _cntx_image_start_pos[i])) {
+            start_locations[*found_images] = _cntx_image_start_pos[i];
+            (*found_images)++;
         }
     }
 
     return true;
 }
+
+
+
 // CAN BE IN ANOTHER MODULE
 bool FwOperations::GetSectData(std::vector<u_int8_t>& file_sect, const u_int32_t *buff, const u_int32_t size) {
 
@@ -482,7 +428,7 @@ bool FwOperations::FwAccessCreate(fw_ops_params_t& fwParams, FBase **ioAccessP)
             WriteToErrBuff(fwParams.errBuff, strerror(errno), fwParams.errBuffSize);
             return false;
         }
-        if (sig == IMG_SIG_TYPE_BIN || sig == IMG_SIG_TYPE_CF) {
+        if (sig == IMG_SIG_TYPE_BIN) {
             *ioAccessP = new FImage;
             if (!(*ioAccessP)->open(fwParams.fileHndl, false, !fwParams.shortErrors)) {
                 WriteToErrBuff(fwParams.errBuff,(*ioAccessP)->err(), fwParams.errBuffSize);
@@ -490,10 +436,10 @@ bool FwOperations::FwAccessCreate(fw_ops_params_t& fwParams, FBase **ioAccessP)
                 return false;
             }
         } else if (sig == IMG_SIG_TYPE_MFA) {
-            u_int8_t* imgbuf = NULL;
+            u_int8_t* imgbuf;
             int sz;
-            // get image from mfa file
-            if ((sz = getMfaImg(fwParams.fileHndl, fwParams.psid, &imgbuf, fwParams.errBuff, fwParams.errBuffSize)) < 0) {
+            if ((sz = getMfaImg(fwParams.fileHndl, fwParams.psid, &imgbuf)) < 0) {
+                WriteToErrBuff(fwParams.errBuff, err2str(sz), fwParams.errBuffSize);
                 return false;
             }
             *ioAccessP = new FImage;
@@ -530,8 +476,8 @@ bool FwOperations::FwAccessCreate(fw_ops_params_t& fwParams, FBase **ioAccessP)
         } else if (sig == IMG_SIG_TYPE_MFA) {
             u_int8_t* imgbuf;
             int sz;
-            // get image from mfa file
-            if ((sz = getMfaImg((u_int8_t*)fwParams.buffHndl, numInfo, fwParams.psid, &imgbuf, fwParams.errBuff, fwParams.errBuffSize)) < 0) {
+            if ((sz = getMfaImg((u_int8_t*)fwParams.buffHndl, numInfo, fwParams.psid, &imgbuf)) < 0) {
+                WriteToErrBuff(fwParams.errBuff, err2str(sz), fwParams.errBuffSize);
                 return false;
             }
             *ioAccessP = new FImage;
@@ -581,103 +527,44 @@ bool FwOperations::FwAccessCreate(fw_ops_params_t& fwParams, FBase **ioAccessP)
     return true;
 }
 
-u_int8_t FwOperations::IsFS4Image(FBase& f, u_int32_t* found_images) {
-    u_int32_t data;
-    u_int8_t image_version;
-    u_int32_t image_start[CNTX_START_POS_SIZE] = {0};
-
-    FindAllImageStart(&f, image_start, found_images, _fs4_magic_pattern);
-
-    if(*found_images){
-        //check if the image_format_version is ok
-        READ4_NOERRMSG(f, image_start[0] + 0x10, &data);
-        TOCPU1(data);
-        image_version = data >> 24;
-        if(image_version == 1){//1 is the current version
-            return FS_FS4_GEN;
-        } else {
-            return FS_UNKNOWN_IMG;
-        }
-    }
-
-    return FS_UNKNOWN_IMG;
-}
-
-u_int8_t FwOperations::IsFS3OrFS2Image(FBase& f, u_int32_t* found_images) {
-    u_int32_t data;
-    u_int8_t image_version;
-    u_int32_t image_start[CNTX_START_POS_SIZE] = {0};
-    FindAllImageStart(&f, image_start, found_images, _cntx_magic_pattern);
-    if (found_images) {
-        READ4_NOERRMSG(f, image_start[0] + FS3_IND_ADDR, &data);
-        TOCPU1(data);
-        image_version = data >> 24;
-        if (image_version == IMG_VER_FS3) {
-            return FS_FS3_GEN;
-        } else {
-            // TODO: if the img format version is unknown we should fail instead of considering it FS2
-            return FS_FS2_GEN;
-        }
-    }
-    return FS_UNKNOWN_IMG;
-}
-
-u_int8_t FwOperations::IsCableImage(FBase& f) {
-    char data[5] = {0};
-    READ4_NOERRMSG(f, 0, (u_int32_t*)&data);
-    if (!strncmp(data, "MTCF", 4)) {
-        return FS_FC1_GEN;
-    }
-    return FS_UNKNOWN_IMG;
-}
-
 u_int8_t FwOperations::CheckFwFormat(FBase& f, bool getFwFormatFromImg) {
-    u_int8_t v;
-    u_int32_t found_images = 0;
-
     if (f.is_flash() && !getFwFormatFromImg) {
-        return GetFwFormatFromHwDevID(((Flash*)&f)->get_dev_id());
+        if (    ( ((Flash*)&f)->get_dev_id() == CX2_HW_ID)        ||
+                ( ((Flash*)&f)->get_dev_id() == CX3_HW_ID)        ||
+                ( ((Flash*)&f)->get_dev_id() == IS4_HW_ID)              ||
+                ( ((Flash*)&f)->get_dev_id() == SWITCHX_HW_ID)    ||
+                ( ((Flash*)&f)->get_dev_id() == CX3_PRO_HW_ID)) {
+            return FS_FS2_GEN;
+        } else if ( (((Flash*)&f)->get_dev_id() == CONNECT_IB_HW_ID) ||
+                    (((Flash*)&f)->get_dev_id() == SWITCH_IB_HW_ID)  ||
+                    (((Flash*)&f)->get_dev_id() == CX4_HW_ID)        ||
+                    (((Flash*)&f)->get_dev_id() == CX4LX_HW_ID)      ||
+                    (((Flash*)&f)->get_dev_id() == CX5_HW_ID)        ||
+                    (((Flash*)&f)->get_dev_id() == SPECTRUM_HW_ID)   ||
+                    (((Flash*)&f)->get_dev_id() == SWITCH_IB2_HW_ID)) {
+            return FS_FS3_GEN;
+        }
     } else {
-        v = IsCableImage(f);
-        if (v != FS_UNKNOWN_IMG) {
-            return v;
-        }
-        //First check if it is FS4
-        v = IsFS4Image(f, &found_images);
+        u_int32_t found_images;
+        u_int32_t image_start[CNTX_START_POS_SIZE];
+
+        // Image - check if magic pattern is somewhere in the file:
+        CntxFindAllImageStart(&f, image_start, &found_images);
         if (found_images) {
-            return v;
+            u_int32_t data;
+            u_int8_t image_version;
+            READ4_NOERRMSG(f, image_start[0] + FS3_IND_ADDR, &data);
+            TOCPU1(data);
+            image_version = data >> 24;
+            if (image_version == IMG_VER_FS3) {
+                return FS_FS3_GEN;
+            } else {
+                // TODO: if the img format version is unknown we should fail instead of considering it FS2
+                return FS_FS2_GEN;
+            }
         }
-        //If not FS4 then check if it is FS3 or FS2
-        return IsFS3OrFS2Image(f, &found_images);
     }
-    return FS_UNKNOWN_IMG;
-}
-
-
-bool FwOperations::CheckBinVersion(u_int8_t binVerMajor, u_int8_t binVerMinor)
-{
-    if (binVerMajor == 0 && binVerMinor == 0) {
-        return true;
-    }
-
-    if (binVerMajor > _maxBinMajorVer/*FS4_MAX_BIN_VER_MAJOR*/) {
-        return errmsg(MLXFW_UNSUPPORTED_BIN_VER_ERR,
-                "Unsupported binary version (%d.%d) please update to latest MFT package",
-                binVerMajor,
-                binVerMinor);
-    }
-    if (binVerMajor < _minBinMajorVer/*FS4_MIN_BIN_VER_MAJOR*/
-            || (binVerMajor == _minBinMajorVer/*FS4_MIN_BIN_VER_MAJOR*/
-                    && binVerMinor < _minBinMinorVer)) {
-        return errmsg(MLXFW_UNSUPPORTED_BIN_VER_ERR,
-                "Unsupported binary version (%d.%d) minimal supported version (%d.%d)", \
-                binVerMajor,
-                binVerMinor,
-                _minBinMajorVer/*FS4_MIN_BIN_VER_MAJOR*/,
-                _minBinMinorVer/*FS4_MIN_BIN_VER_MINOR*/);
-    }
-
-    return true;
+    return FS_OLD_GEN;
 }
 
 FwOperations* FwOperations::FwOperationsCreate(void* fwHndl, void *info, char* psid, fw_hndl_type_t hndlType, char* errBuff, int buffSize)
@@ -707,29 +594,8 @@ FwOperations* FwOperations::FwOperationsCreate(void* fwHndl, void *info, char* p
         fwParams.ignoreCacheRep = 0;
         fwParams.noFlashVerify = false;
         fwParams.cx3FwAccess = 0;
-    } else if (hndlType == FHT_CABLE_DEV) {
-        fwParams.buffHndl = (u_int32_t*)fwHndl;
     }
     return FwOperationsCreate(fwParams);
-}
-
-bool FwOperations::imageDevOperationsCreate(fw_ops_params_t& devParams, fw_ops_params_t& imgParams, FwOperations** devFwOps, FwOperations** imgFwOps)
-{
-    *imgFwOps = FwOperationsCreate(imgParams);
-    if (!(*imgFwOps)) {
-        return false;
-    }
-    fw_info_t imgQuery;
-    memset(&imgQuery, 0, sizeof(fw_info_t));
-    (*imgFwOps)->FwQuery(&imgQuery);
-    if (imgQuery.fs3_info.security_mode == SM_NONE) {
-        devParams.noFwCtrl = true;
-    }
-    *devFwOps = FwOperationsCreate(devParams);
-    if (!(*devFwOps)) {
-        return false;
-    }
-    return true;
 }
 
 void FwOperations::BackUpFwParams(fw_ops_params_t& fwParams)
@@ -755,110 +621,46 @@ void FwOperations::BackUpFwParams(fw_ops_params_t& fwParams)
     _fwParams.shortErrors = fwParams.shortErrors;
     _fwParams.uefiExtra = fwParams.uefiExtra;
     _fwParams.uefiHndl = fwParams.uefiHndl;
-    _fwParams.isCableFw = fwParams.isCableFw;
 }
 
 FwOperations* FwOperations::FwOperationsCreate(fw_ops_params_t& fwParams)
 {
     FwOperations* fwops;
     u_int8_t fwFormat;
-    FBase *ioAccess = (FBase *)NULL;
-    FwCompsMgr* fwCompsAccess = (FwCompsMgr*)NULL;
+    FBase *ioAccess;
     bool getFwFormatFromImg = false;
-#ifdef CABLES_SUPP
-    if (fwParams.hndlType == FHT_CABLE_DEV) {
-        fwops = new CableFwOperations(fwParams.mstHndl);
-        if(!fwops->FwInit()) {
-            WriteToErrBuff(fwParams.errBuff, fwops->err(), fwParams.errBuffSize);
-            delete fwops;
-            return (FwOperations*)NULL;
+    if (!FwAccessCreate(fwParams, &ioAccess)) {
+        return (FwOperations*)NULL;
+    }
+    if (fwParams.hndlType == FHT_UEFI_DEV) {
+        // IN UEFI we don't have an access to read devID from cr-space so we are reading it from FW  image signature
+        getFwFormatFromImg = true;
+    }
+    fwFormat = CheckFwFormat(*ioAccess, getFwFormatFromImg);
+    switch (fwFormat) {
+        case FS_FS2_GEN: {
+            fwops = new Fs2Operations(ioAccess);
+            break;
         }
+        case FS_FS3_GEN: {
+            fwops = new Fs3Operations(ioAccess);
+            break;
+        }
+        default:
+            delete ioAccess;
+            WriteToErrBuff(fwParams.errBuff,"invalid Firmware Format (found FS Gen 1)", fwParams.errBuffSize);
+            return (FwOperations*)NULL;
+    }
+    // save initialization parameters
+    fwops->BackUpFwParams(fwParams);
+
+    fwops->_advErrors = !fwParams.shortErrors;
+    fwops->FwInit();
+    if (fwParams.hndlType == FHT_FW_FILE) {
+        fwops->_fname = strcpy(new char[strlen(fwParams.fileHndl)+ 1], fwParams.fileHndl);
+    }
+    if (fwParams.hndlType == FHT_MST_DEV) {
         fwops->_devName = strcpy(new char[strlen(fwParams.mstHndl)+ 1], fwParams.mstHndl);
-    } else
-#endif
-    {
-        if ((!fwParams.ignoreCacheRep && !fwParams.noFwCtrl && fwParams.hndlType == FHT_MST_DEV) ||
-                (fwParams.hndlType == FHT_UEFI_DEV     &&
-                  fwParams.uefiExtra != NULL           &&
-                  fwParams.uefiExtra->dev_info != NULL &&
-                  !fwParams.uefiExtra->dev_info->no_fw_ctrl)) {
-            if (fwParams.hndlType == FHT_MST_DEV) {
-                fwCompsAccess = new FwCompsMgr(fwParams.mstHndl);
-            } else if (fwParams.hndlType == FHT_UEFI_DEV) {
-                fwCompsAccess = new FwCompsMgr(fwParams.uefiHndl, fwParams.uefiExtra);
-            }
-            if (fwCompsAccess->getLastError() != FWCOMPS_SUCCESS) {
-                delete fwCompsAccess;
-                fwCompsAccess = (FwCompsMgr*) NULL;
-            } else {
-                fwInfoT fwInfo;
-                if (fwParams.forceLock) {
-                    fwCompsAccess->forceRelease();
-                }
-                if (fwParams.mccUnsupported &&
-                    fwCompsAccess->queryFwInfo(&fwInfo) == true &&
-                    fwInfo.security_type.secure_fw == 0) {
-                    delete fwCompsAccess;
-                    fwCompsAccess = (FwCompsMgr*) NULL;
-                } else {
-                    fwFormat = FS_FSCTRL_GEN;
-                    goto init_fwops;
-                }
-            }
-
-        }
-        if (!FwAccessCreate(fwParams, &ioAccess)) {
-            return (FwOperations*)NULL;
-        }
-        if (fwParams.hndlType == FHT_UEFI_DEV) {
-            // IN UEFI we don't have an access to read devID from cr-space so we are reading it from FW  image signature
-            getFwFormatFromImg = true;
-        }
-
-        fwFormat = CheckFwFormat(*ioAccess, getFwFormatFromImg);
-init_fwops:
-        switch (fwFormat) {
-            case FS_FS2_GEN: {
-                fwops = new Fs2Operations(ioAccess);
-                break;
-            }
-            case FS_FS3_GEN: {
-                fwops = new Fs3Operations(ioAccess);
-                break;
-            }
-            case FS_FS4_GEN: {
-                fwops = new Fs4Operations(ioAccess);
-                break;
-            }
-            case FS_FSCTRL_GEN: {
-                if (!fwCompsAccess) {
-                    return (FwOperations*)NULL;
-                }
-                fwops = new FsCtrlOperations(fwCompsAccess);
-                break;
-            }
-#ifdef CABLES_SUPP
-            case FS_FC1_GEN: {
-                fwops = new CableFwOperations(ioAccess);
-                break;
-            }
-#endif
-            default:
-                delete ioAccess;
-                WriteToErrBuff(fwParams.errBuff,"invalid Firmware Format (found FS Gen 1)", fwParams.errBuffSize);
-                return (FwOperations*)NULL;
-        }
-        // save initialization parameters
-        fwops->BackUpFwParams(fwParams);
-
-        fwops->_advErrors = !fwParams.shortErrors;
-        fwops->FwInit();
-        if (fwParams.hndlType == FHT_FW_FILE) {
-            fwops->_fname = strcpy(new char[strlen(fwParams.fileHndl)+ 1], fwParams.fileHndl);
-        }
-        if (fwParams.hndlType == FHT_MST_DEV) {
-            fwops->_devName = strcpy(new char[strlen(fwParams.mstHndl)+ 1], fwParams.mstHndl);
-        }
     }
     return fwops;
 }
@@ -874,7 +676,7 @@ u_int32_t FwOperations::CalcImageCRC(u_int32_t* buff, u_int32_t size)
     return new_crc;
 }
 
-bool FwOperations::writeImageEx(ProgressCallBackEx progressFuncEx, void * progressUserData, ProgressCallBack progressFunc, u_int32_t addr, void *data, int cnt, bool isPhysAddr, bool readModifyWrite, int totalSz, int alreadyWrittenSz)
+bool FwOperations::writeImage(ProgressCallBack progressFunc, u_int32_t addr, void *data, int cnt, bool isPhysAddr, bool readModifyWrite, int totalSz, int alreadyWrittenSz)
 {
     u_int8_t   *p = (u_int8_t *)data;
     u_int32_t  curr_addr = addr;
@@ -914,7 +716,7 @@ bool FwOperations::writeImageEx(ProgressCallBackEx progressFuncEx, void * progre
             }
         } else {
             trans = towrite;
-            if (!((FImage*)_ioAccess)->write(curr_addr, p, trans)) {
+            if (!ModifyImageFile(_fname, curr_addr, p, trans)) {
                 return false;
             }
         }
@@ -923,23 +725,54 @@ bool FwOperations::writeImageEx(ProgressCallBackEx progressFuncEx, void * progre
         towrite -= trans;
 
         // Report
-        if (progressFunc != NULL or progressFuncEx != NULL) {
+        if (progressFunc != NULL) {
             u_int32_t new_perc = ((cnt - towrite + alreadyWrittenSz) * 100) / totalSz;
-            if (progressFunc != NULL && progressFunc((int)new_perc)) {
-                return errmsg("Aborting... received interrupt signal");
-            }
-            if (progressFuncEx != NULL && progressFuncEx((int)new_perc, progressUserData)){
-                return errmsg("Aborting... received interrupt signal");
+
+                    if (progressFunc((int)new_perc)) {
+                        return errmsg("Aborting... recieved interrupt signal");
+                    }
             }
         }
-    }
+
     return true;
 } //  Flash::WriteImage
 
-
-bool FwOperations::writeImage(ProgressCallBack progressFunc, u_int32_t addr, void *data, int cnt, bool isPhysAddr, bool readModifyWrite, int totalSz, int alreadyWrittenSz)
+bool FwOperations::ModifyImageFile(const char *fimage, u_int32_t addr, void *data, int cnt)
 {
-    return writeImageEx((ProgressCallBackEx)NULL, NULL, progressFunc, addr, data, cnt, isPhysAddr, readModifyWrite, totalSz, alreadyWrittenSz);
+    int file_size = 0;
+    u_int8_t * file_data = (u_int8_t*)NULL;
+
+    if (!ReadImageFile(fimage, file_data, file_size, addr + cnt)) {
+        return false;
+    }
+    memcpy(&file_data[addr], data, cnt);
+
+    if (!WriteImageToFile(fimage, file_data, file_size)) {
+        delete[] file_data;
+        return false;
+    }
+    delete[] file_data;
+    return true;
+}
+
+bool FwOperations::WriteImageToFile(const char *file_name, u_int8_t *data, u_int32_t length)
+{
+#ifndef UEFI_BUILD
+    FILE* fh;
+    if ((fh = fopen(file_name, "wb")) == (FILE*)NULL) {
+        return errmsg("Can not open %s: %s\n", file_name, strerror(errno));
+    }
+
+    // Write output
+    if (fwrite(data, 1, length, fh) != length) {
+        fclose(fh);
+        return errmsg("Failed to write to %s: %s\n", file_name, strerror(errno));
+    }
+    fclose(fh);
+    return true;
+#else
+    return errmsg("Not Implemented\n");
+#endif
 }
 
 bool FwOperations::CheckMac(u_int64_t mac) {
@@ -994,47 +827,34 @@ bool FwOperations::getInfoFromHwDevid(u_int32_t hwDevId, chip_type_t& chipT, con
             *swIds = hwDevData[i].swDevIds;
             return true;
         }
-        i++;
+            i++;
     }
     return errmsg(MLXFW_DEV_ID_ERR, "Failed to identify device ID(MT%d).", hwDevId);
 }
 
-FwOperations::HwDevData FwOperations::getInfoFromChipType(chip_type_t chipT) const {
-    int i = 0;
-    while (hwDevData[i].name != NULL) {
-        if (hwDevData[i].chipType == chipT) {
-           return  hwDevData[i];
-        }
-            i++;
-    }
-    return hwDevData[i];
-}
-
 // TODO:combine both databases(hwDevData and hwDev2Str) and remove old unsupporded devices i.e infinihost infinihost_iii_ex infinihost_iii_lx
 const FwOperations::HwDevData FwOperations::hwDevData[] = {
-    { "ConnectX",          CX2_HW_ID, CT_CONNECTX, CFT_HCA, 2,  {25408, 25418, 26418, 26438,
+    { "ConnectX",          CX2_HW_ID, CT_CONNECTX, 2,  {25408, 25418, 26418, 26438,
                                                  26428, 25448, 26448, 26468,
                                                  25458, 26458, 26478, 26488,
-                                                 4097, 4098, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "ConnectX-3",        CX3_HW_ID, CT_CONNECTX, CFT_HCA, 2,  {4099, 4100, 4101, 4102,
+                                                 4097, 4098, 0}},
+    { "ConnectX-3",        CX3_HW_ID, CT_CONNECTX, 2,  {4099, 4100, 4101, 4102,
                                          4104, 4105, 4106,
                                          4107, 4108, 4109, 4110,
-                                         4111, 4112, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "ConnectX-3Pro",    CX3_PRO_HW_ID, CT_CONNECTX, CFT_HCA, 2, {4103,0}, {{UNKNOWN_BIN,{0}}}},
-    { "Connect_IB",       CONNECT_IB_HW_ID, CT_CONNECT_IB, CFT_HCA, 2, {CONNECT_IB_SW_ID, 4114, 4115, 4116,
+                                         4111, 4112, 0}},
+    { "ConnectX-3Pro",    CX3_PRO_HW_ID, CT_CONNECTX, 2, {4103,0}},
+    { "Connect_IB",       CONNECT_IB_HW_ID, CT_CONNECT_IB, 2, {CONNECT_IB_SW_ID, 4114, 4115, 4116,
                                          4117, 4118, 4119, 4120,
-                                         4121, 4122, 4123, 4124, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "InfiniScale IV",   IS4_HW_ID,        CT_IS4,          CFT_SWITCH,  0, {48436, 48437, 48438, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "SwitchX",          SWITCHX_HW_ID,    CT_SWITCHX,      CFT_SWITCH,  0, {51000, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "Switch_IB",        SWITCH_IB_HW_ID,  CT_SWITCH_IB,    CFT_SWITCH,  0, {52000, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "ConnectX-4",       CX4_HW_ID,        CT_CONNECTX4,    CFT_HCA,     0, {4115, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "ConnectX-4LX",     CX4LX_HW_ID,      CT_CONNECTX4_LX, CFT_HCA,     0, {4117, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "ConnectX-5",       CX5_HW_ID,        CT_CONNECTX5,    CFT_HCA,     0, {4119, 4121, 0}, {{CX5_LOW_BIN, {4119, 0}},
-                                                                                               {CX5_HIGH_BIN, {4119, 4121, 0}},
-                                                                                               {UNKNOWN_BIN,{0}}}},
-    { "Spectrum",         SPECTRUM_HW_ID,   CT_SPECTRUM,     CFT_SWITCH,  0, {52100, 0}, {{UNKNOWN_BIN,{0}}}},
-    { "Switch_IB2",       SWITCH_IB2_HW_ID, CT_SWITCH_IB2,   CFT_SWITCH,  0, {53000, 0}, {{UNKNOWN_BIN,{0}}}},
-    { (char*)NULL ,       0,                CT_UNKNOWN,      CFT_UNKNOWN, 0, {0}, {{UNKNOWN_BIN,{0}}}},// zero devid terminator
+                                         4121, 4122, 4123, 4124, 0}},
+    { "InfiniScale IV",   IS4_HW_ID,        CT_IS4,         0, {48436, 48437, 48438, 0}},
+    { "SwitchX",          SWITCHX_HW_ID,    CT_SWITCHX,     0, {51000, 0}},
+    { "Switch_IB",        SWITCH_IB_HW_ID,  CT_SWITCH_IB,   0, {52000, 0}},
+    { "ConnectX-4",       CX4_HW_ID,        CT_CONNECTX4,    0, {4115, 0}},
+    { "ConnectX-4LX",     CX4LX_HW_ID,      CT_CONNECTX4_LX,    0, {4117, 0}},
+    { "ConnectX-5",       CX5_HW_ID,        CT_CONNECTX5,    0, {4119, 0}},
+    { "Spectrum",         SPECTRUM_HW_ID,   CT_SPECTRUM,   0, {52100, 0}},
+    { "Switch_IB2",       SWITCH_IB2_HW_ID, CT_SWITCH_IB2,   0, {53000, 0}},
+    { (char*)NULL ,              0, CT_UNKNOWN, 0, {0}},// zero devid terminator
 };
 
 const FwOperations::HwDev2Str FwOperations::hwDev2Str[] = {
@@ -1053,7 +873,6 @@ const FwOperations::HwDev2Str FwOperations::hwDev2Str[] = {
         {"SwitchIB A0",       SWITCH_IB_HW_ID,  0x00},
         {"Spectrum A0",       SPECTRUM_HW_ID,   0x00},
         {"SwitchIB2 A0",      SWITCH_IB2_HW_ID, 0x00},
-        {"Spectrum A1",       SPECTRUM_HW_ID,   0x01},
         { (char*)NULL ,       (u_int32_t)0, (u_int8_t)0x00}, // zero device ID terminator
 };
 
@@ -1082,7 +901,7 @@ bool FwOperations::HWIdRevToName(u_int32_t hw_id, u_int8_t rev_id, char *hw_name
 
 // This function gets the HW ID of the target device and the dev ID from
 // the image. It then matches the 2 IDs and returns an error in case of
-// mismatch. The match is not 1:1 , since the FW image contains the SW
+// missmatch. The match is not 1:1 , since the FW image contains the SW
 // dev id, and a single hw dev id may match multiple SW dev IDs.
 //
 bool FwOperations::CheckMatchingHwDevId(u_int32_t hwDevId, u_int32_t rev_id, u_int32_t* supportedHwId, u_int32_t supportedHwIdNum) {
@@ -1131,7 +950,7 @@ bool FwOperations::CheckMatchingHwDevId(u_int32_t hwDevId, u_int32_t rev_id, u_i
         return false;
     }
 
-    return errmsg(MLXFW_DEVICE_IMAGE_MISMATCH_ERR, "FW image file cannot be programmed to device %s, it is intended for: %s only",
+    return errmsg(MLXFW_DEVICE_IMAGE_MISSMATCH_ERR, "FW image file cannot be programmed to device %s, it is intended for: %s only",
             curr_hw_id_name, supp_hw_id_list);
 }
 bool FwOperations::CheckMatchingDevId(u_int32_t hwDevId, u_int32_t imageDevId) {
@@ -1168,34 +987,6 @@ bool FwOperations::CheckMatchingDevId(u_int32_t hwDevId, u_int32_t imageDevId) {
     return true;
 }
 
-bool FwOperations::CheckMatchingBinning(u_int32_t hwDevId, BinIdT binningVal, u_int32_t imageDevId)
-{
-    const HwDevData* devData = (const HwDevData*)NULL;
-
-    // First, find the HW device that the Hw id matches
-    for (int i = 0; hwDevData[i].hwDevId != 0 ; i++) {
-        if (hwDevData[i].hwDevId == hwDevId) {
-            devData = &hwDevData[i];
-        }
-    }
-    if (devData != NULL) {
-        // Find the bin speed and match its SW ID to the ImageDevID
-        for (int j = 0; devData->binningId[j].binId != UNKNOWN_BIN; j++) {
-            if (devData->binningId[j].binId == binningVal) {
-                int k = 0;
-                while (devData->binningId[j].swId[k] != 0) {
-                    if (imageDevId == devData->binningId[j].swId[k]) {
-                        return true;
-                    }
-                    k++;
-                }
-                return errmsg("FW image does not match the device bin info.\n");
-            }
-        }
-    }
-    return true;
-}
-
 void FwOperations::FwDebugPrint(char *str)
 {
     if (_printFunc != NULL) {
@@ -1213,7 +1004,7 @@ bool FwOperations::CheckPSID(FwOperations &imageOps, u_int8_t allow_psid_change)
 {
     if (!allow_psid_change) {
         if (strncmp( _fwImgInfo.ext_info.psid, imageOps._fwImgInfo.ext_info.psid, PSID_LEN)) {
-            return errmsg(MLXFW_PSID_MISMATCH_ERR, "Image PSID is %s, it cannot be burnt into current device (PSID: %s)",
+            return errmsg(MLXFW_PSID_MISSMATCH_ERR, "Image PSID is %s, it cannot be burnt into current device (PSID: %s)",
                     imageOps._fwImgInfo.ext_info.psid, _fwImgInfo.ext_info.psid);
         }
     }
@@ -1232,8 +1023,7 @@ bool FwOperations::CheckFwVersion(FwOperations &imageOps, u_int8_t forceVersion)
     return true;
 }
 
-bool FwOperations::FwSwReset()
-{
+bool FwOperations::FwSwReset() {
     if (!_ioAccess->is_flash()) {
         return errmsg("operation supported only for switch devices: InfiniScaleIV SwitchX and SwitchIB over an IB interface");
     }
@@ -1243,14 +1033,15 @@ bool FwOperations::FwSwReset()
     return true;
 }
 
-void FwOperations::WriteToErrBuff(char* errBuff, const char* errStr, int bufSize)
+
+void FwOperations::WriteToErrBuff(char* errBuff, const char* errStr, int size)
 {
-    if (bufSize > 0) {
-        if (bufSize > (int)strlen(errStr)) {
-            strncpy(errBuff, errStr, bufSize);
+    if (size>0) {
+        if (size-4 > (int) strlen(errStr)) {
+            strncpy(errBuff, errStr, size);
         } else {
-            strncpy(errBuff, errStr, bufSize-4);
-            strcpy(&errBuff[bufSize-4], "...");
+            strncpy(errBuff, errStr, size-4);
+            strcpy(&errBuff[size-4], "...");
         }
     }
     return;
@@ -1316,7 +1107,6 @@ bool FwOperations::RomInfo::initRomsInfo(roms_info_t *info)
         //copy rom_info struct
         info->rom_info[i].exp_rom_product_id = romsInfo[i].exp_rom_product_id; // 0 - invalid.
         info->rom_info[i].exp_rom_dev_id = romsInfo[i].exp_rom_dev_id;
-        info->rom_info[i].exp_rom_supp_cpu_arch = romsInfo[i].exp_rom_supp_cpu_arch;
         info->rom_info[i].exp_rom_port = romsInfo[i].exp_rom_port;
         info->rom_info[i].exp_rom_proto = romsInfo[i].exp_rom_proto;
         info->rom_info[i].exp_rom_num_ver_fields = romsInfo[i].exp_rom_num_ver_fields;
@@ -1469,17 +1259,6 @@ bool FwOperations::RomInfo::GetExpRomVersion()
     return true;
 }
 
-u_int8_t FwOperations::RomInfo::getNumVerFromProdId(u_int16_t prodId)
-{
-    if (prodId < 0xF || prodId == 0x12) {
-        return 1;//For CLPs
-    } else if (prodId == 0xF) {
-        return 0;
-    } else { // >= 0x10
-        return 3;
-    }
-}
-
 bool FwOperations::RomInfo::GetExpRomVerForOneRom(u_int32_t verOffset)
 {
 
@@ -1530,7 +1309,13 @@ bool FwOperations::RomInfo::GetExpRomVerForOneRom(u_int32_t verOffset)
     romInfo->exp_rom_product_id = tmp >> 16;
     romInfo->exp_rom_ver[0] = tmp & 0xffff;
 
-    romInfo->exp_rom_num_ver_fields = FwOperations::RomInfo::getNumVerFromProdId(romInfo->exp_rom_product_id);
+    if (romInfo->exp_rom_product_id < 0xF || romInfo->exp_rom_product_id == 0x12) {
+        romInfo->exp_rom_num_ver_fields = 1;//For CLPs
+    } else if (romInfo->exp_rom_product_id == 0xF) {
+        romInfo->exp_rom_num_ver_fields = 0;
+    } else { // >= 0x10
+        romInfo->exp_rom_num_ver_fields = 3;
+    }
 
     if (romInfo->exp_rom_product_id == 0x11 || romInfo->exp_rom_product_id == 0x21) {
         noRomChecksum = true;
@@ -1538,9 +1323,8 @@ bool FwOperations::RomInfo::GetExpRomVerForOneRom(u_int32_t verOffset)
 
     if (romInfo->exp_rom_product_id >= 0x10) {
         offs8 = __le32_to_cpu(*((u_int32_t*) &romSect[verOffset + 8]));
-        romInfo->exp_rom_supp_cpu_arch = (offs8 >> 8) & 0xf;
         romInfo->exp_rom_dev_id = offs8 >> 16;
-    	//0x12 is CLP we have only 1 version field and no port
+    	//0x12 is CLP we have only 1 version field and no porty
     	if (romInfo->exp_rom_product_id != 0x12){
     		offs4 = __le32_to_cpu(*((u_int32_t*) &romSect[verOffset + 4]));
     		romInfo->exp_rom_ver[1] = offs4 >> 16;
@@ -1551,7 +1335,7 @@ bool FwOperations::RomInfo::GetExpRomVerForOneRom(u_int32_t verOffset)
         }
     } else if (romInfo->exp_rom_product_id == 0xf) {
         // get string length
-        u_int32_ba tmp_ba = __le32_to_cpu(*((u_int32_t*) &romSect[verOffset + 0xc]));
+        u_int32_ba tmp_ba = *((u_int32_t*) &romSect[verOffset + 0xc]);
         u_int32_t str_len = u_int32_t(tmp_ba.range(15, 8));
         u_int32_t sign_length = u_int32_t(tmp_ba.range(7, 0));
         u_int32_t dws_num = ((str_len + 3) / 4) + 4;
@@ -1596,7 +1380,7 @@ bool FwOperations::RomInfo::GetExpRomVerForOneRom(u_int32_t verOffset)
     return true;
 }
 
-bool FwOperations::ReadImageFile(const char *fimage, u_int8_t *&file_data, int &file_size)
+bool FwOperations::ReadImageFile(const char *fimage, u_int8_t *&file_data, int &file_size, int min_size)
 {
 #ifndef UEFI_BUILD
     FILE* fh;
@@ -1618,6 +1402,14 @@ bool FwOperations::ReadImageFile(const char *fimage, u_int8_t *&file_data, int &
     rewind(fh);
 
     file_size = read_file_size;
+    if (min_size != -1) {// take min of min_size and read_file_size
+        if (min_size < 0) {
+            fclose(fh);
+            return errmsg("Internal error, minimal image read size cannot be negative.");
+        }
+        file_size = ( min_size > read_file_size ) ? min_size : read_file_size;
+    }
+
     file_data = new u_int8_t[file_size];
     if (fread(file_data, 1, read_file_size, fh) != (size_t)read_file_size) {
         delete[] file_data;
@@ -1642,9 +1434,7 @@ void FwOperations::SetDevFlags(chip_type_t chipType, u_int32_t devType, fw_img_t
         ethDev = true;
     } else {
         ibDev  = (fwType == FIT_FS3 && chipType != CT_SPECTRUM) || (chipType == CT_CONNECTX && !CntxEthOnly(devType));
-        ethDev = (chipType == CT_CONNECTX) || (chipType == CT_SPECTRUM) || (chipType == CT_CONNECTX4) ||\
-                 (chipType == CT_CONNECTX4_LX) || (chipType == CT_CONNECTX5) || (chipType == CT_BLUEFIELD) ||\
-                 (chipType == CT_SPECTRUM2) || (chipType == CT_CONNECTX6);
+        ethDev = (chipType == CT_CONNECTX) || (chipType == CT_SPECTRUM) || (chipType == CT_CONNECTX4) || (chipType == CT_CONNECTX4_LX) || (chipType == CT_CONNECTX5);
     }
 
     if ((!ibDev && !ethDev) || chipType == CT_UNKNOWN) {
@@ -1720,7 +1510,6 @@ bool FwOperations::FwWriteBlock(u_int32_t addr, std::vector<u_int8_t> dataVec, P
 bool FwOperations::FwBurnData(u_int32_t *data, u_int32_t dataSize, ProgressCallBack progressFunc) {
     FwOperations* newImgOps;
     fwOpsParams imgOpsParams;
-    memset(&imgOpsParams, 0, sizeof(imgOpsParams));
     char errBuff[1024] = {0};
 
     imgOpsParams.psid      = (char*)NULL;
@@ -1818,82 +1607,4 @@ bool FwOperations::FwQueryTimeStamp(struct tools_open_ts_entry& timestamp, struc
     (void)fwVer;
     (void)queryRunning;
     return errmsg("Operation not supported.");
-}
-
-bool FwOperations::FwInsertEncSHA256(const char* privPemFile, const char* uuid, PrintCallBack printFunc)
-{
-    (void) privPemFile;
-    (void) uuid;
-    (void) printFunc;
-    return errmsg("Operation not supported");
-}
-
-bool FwOperations::FwInsertSHA256(PrintCallBack printFunc)
-{
-    (void) printFunc;
-    return errmsg("Operation not supported");
-}
-
-bool FwOperations::FwExtract4MBImage(vector<u_int8_t>& img, bool maskMagicPatternAndDevToc)
-{
-    (void)img;
-    (void)maskMagicPatternAndDevToc;
-    return errmsg("Operation not supported");
-}
-
-bool FwOperations::FwSetPublicKeys(char* fname, PrintCallBack callBackFunc)
-{
-    (void) fname;
-    (void) callBackFunc;
-    return errmsg("Operation not supported");
-}
-
-bool FwOperations::FwSetForbiddenVersions(char* fname, PrintCallBack callBackFunc)
-{
-    (void) fname;
-    (void) callBackFunc;
-    return errmsg("Operation not supported");
-}
-
-bool FwOperations::FwReadBlock(u_int32_t addr, u_int32_t size, std::vector<u_int8_t>& dataVec)
-{
-    if (addr + size > _ioAccess->get_size()) {
-        return errmsg(MLXFW_BAD_PARAM_ERR, "Reading %#x bytes from address %#x is out of flash limits (%#x bytes)\n",
-                size, (unsigned int)addr, (unsigned int)_ioAccess->get_size());
-    }
-    //read from flash/image
-    if (!_ioAccess->read(addr, &dataVec[0], size)) {
-        return errmsg(MLXFW_BAD_PARAM_ERR, "%s", _ioAccess->err());
-    }
-    return true;
-}
-
-u_int8_t FwOperations::GetFwFormatFromHwDevID(u_int32_t hwDevId)
-{
-    if ((hwDevId == CX2_HW_ID)       ||
-        ( hwDevId == CX3_HW_ID)      ||
-        ( hwDevId == IS4_HW_ID)      ||
-        ( hwDevId == SWITCHX_HW_ID)  ||
-        ( hwDevId == CX3_PRO_HW_ID)) {
-        return FS_FS2_GEN;
-    } else if ( (hwDevId == CONNECT_IB_HW_ID) ||
-            (hwDevId == SWITCH_IB_HW_ID)  ||
-            (hwDevId == CX4_HW_ID)        ||
-            (hwDevId == CX4LX_HW_ID)      ||
-            (hwDevId == SPECTRUM_HW_ID)   ||
-            (hwDevId == SWITCH_IB2_HW_ID)) {
-        return FS_FS3_GEN;
-    } else if (hwDevId == CX5_HW_ID ||
-           hwDevId == CX6_HW_ID ||
-           hwDevId == BF_HW_ID      ||
-           hwDevId == QUANTUM_HW_ID ||
-           hwDevId == SPECTRUM2_HW_ID){
-        return FS_FS4_GEN;
-    }
-    return FS_UNKNOWN_IMG;
-}
-
-const char*  FwOperations::FwGetReSignMsgStr()
-{
-    return (const char*)NULL;
 }

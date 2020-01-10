@@ -89,7 +89,7 @@ protected:
     string _example;
     char  _errBuff[FLINT_ERR_LEN];
     sub_cmd_t _cmdType;
-    bool _mccSupported;
+
 
     //Methods that are commonly used in the various subcommands:
     //TODO: add middle classes and segregate as much of these common methods between these classes
@@ -104,14 +104,11 @@ protected:
     bool getRomsInfo(FBase* io, roms_info_t& romsInfo);
     void displayOneExpRomInfo(const rom_info_t& info);
     void displayExpRomInfo(const roms_info_t& romsInfo, const char *preStr);
-    string getRomProtocolStr(u_int8_t proto);
-    string getRomSuppCpuStr(u_int8_t suppCpu);
 
     static int verifyCbFunc(char* str);
     static int CbCommon(int completion, char*preStr, char* endStr=NULL);
     static int burnCbFs2Func(int completion);
     static int burnCbFs3Func(int completion);
-    static int advProgressFunc(int completion, const char* stage, prog_t type, int* unknownProgress);
     static int burnBCbFunc(int completion);
     static int vsdCbFunc(int completion);
     static int setKeyCbFunc(int completion);
@@ -144,7 +141,6 @@ protected:
     void reportErr(bool shouldPrint, const char *format, ...);
 
     bool writeToFile(string filePath, const std::vector<u_int8_t>& buff);
-    FlintStatus writeImageToFile(const char *file_name, u_int8_t *data, u_int32_t length);
 
     bool dumpFile(const char* confFile, std::vector<u_int8_t>& data, const char *sectionName);
     bool unzipDataFile (std::vector<u_int8_t> data, std::vector<u_int8_t> &newData, const char *sectionName);
@@ -152,7 +148,7 @@ protected:
 
 
 public:
-    SubCommand(): _fwOps(NULL), _imgOps(NULL), _io(NULL), _v(Wtv_Uninitilized), _maxCmdParamNum(-1),  _minCmdParamNum(-1), _mccSupported(false)
+    SubCommand(): _fwOps(NULL), _imgOps(NULL), _io(NULL), _v(Wtv_Uninitilized), _maxCmdParamNum(-1),  _minCmdParamNum(-1)
     {
         _cmdType = SC_No_Cmd;
         memset(_errBuff, 0, sizeof(_errBuff));
@@ -178,14 +174,13 @@ private:
     fw_info_t _imgInfo;
     FwOperations::ExtBurnParams _burnParams;
     bool _devQueryRes;
-    int _unknownProgress; // used to trace the progress of unknown progress.
 
     FlintStatus burnFs3();
     FlintStatus burnFs2();
     bool checkFwVersion();
     bool checkPSID();
     void updateBurnParams();
-    bool dealWithExpRom();
+    void dealWithExpRom();
     bool checkMatchingExpRomDevId(const fw_info_t& info);
     bool dealWithGuids();
     bool dealWithVSD();
@@ -199,7 +194,6 @@ public:
 class QuerySubCommand : public SubCommand
 {
 private:
-    string printSecurityAttrInfo(u_int32_t m);
     FlintStatus printInfo(const fw_info_t& fwInfo, bool fullQuery);
     bool displayFs3Uids(const fw_info_t& fwInfo);
     bool displayFs2Uids(const fw_info_t& fwInfo);
@@ -209,44 +203,6 @@ public:
     ~QuerySubCommand();
     FlintStatus executeCommand();
     bool verifyParams();
-};
-
-class Extract4MBImageSubCommand : public SubCommand
-{
-private:
-public:
-    Extract4MBImageSubCommand();
-    ~Extract4MBImageSubCommand();
-    FlintStatus executeCommand();
-};
-
-
-class SignSubCommand : public SubCommand
-{
-private:
-public:
-    SignSubCommand();
-    ~SignSubCommand();
-    FlintStatus executeCommand();
-    bool verifyParams();
-};
-
-class SetPublicKeysSubCommand : public SubCommand
-{
-private:
-public:
-    SetPublicKeysSubCommand();
-    ~SetPublicKeysSubCommand();
-    FlintStatus executeCommand();
-};
-
-class SetForbiddenVersionsSubCommand : public SubCommand
-{
-private:
-public:
-    SetForbiddenVersionsSubCommand();
-    ~SetForbiddenVersionsSubCommand();
-    FlintStatus executeCommand();
 };
 
 class VerifySubCommand : public SubCommand
@@ -368,6 +324,8 @@ public:
 };
 class RiSubCommand : public SubCommand
 {
+private:
+    FlintStatus writeImageToFile(const char *file_name, u_int8_t *data, u_int32_t length);
 public:
     RiSubCommand();
     ~RiSubCommand();
@@ -576,14 +534,6 @@ private:
     FwOperations* _ops;
     struct tools_open_ts_entry _userTsEntry;
     struct tools_open_fw_version _userFwVer;
-};
-
-class CacheImageSubCommand : public SubCommand
-{
-public:
-    CacheImageSubCommand();
-    ~CacheImageSubCommand();
-    FlintStatus executeCommand();
 };
 
 #endif

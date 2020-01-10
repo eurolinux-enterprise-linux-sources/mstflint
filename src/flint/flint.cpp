@@ -143,7 +143,6 @@ map_sub_cmd_t_to_subcommand Flint::initSubcommandMap()
     cmdMap[SC_Smg] = new SmgSubCommand();
     cmdMap[SC_Set_Vpd] = new SetVpdSubCommand();
     cmdMap[SC_Fix_Img] = new FiSubCommand();
-    cmdMap[SC_Extract_4MB_Image] = new Extract4MBImageSubCommand();
 #endif
     cmdMap[SC_Sv] = new SvSubCommand();
     cmdMap[SC_Ri] = new RiSubCommand();
@@ -162,10 +161,6 @@ map_sub_cmd_t_to_subcommand Flint::initSubcommandMap()
     cmdMap[SC_Clear_Sem] = new ClearSemSubCommand();
     cmdMap[SC_Check_Sum] = new CheckSumSubCommand();
     cmdMap[SC_Time_Stamp] = new TimeStampSubCommand();
-    cmdMap[SC_Cache_Image] = new CacheImageSubCommand();
-    cmdMap[SC_Sign] = new SignSubCommand();
-    cmdMap[SC_Set_Public_Keys] = new SetPublicKeysSubCommand();
-    cmdMap[SC_Set_Forbidden_Versions] = new SetForbiddenVersionsSubCommand();
     return cmdMap;
 }
 
@@ -238,11 +233,6 @@ FlintStatus Flint::run(int argc, char* argv[])
     }
     //TODO: Step 3 check flintParams for contradictions?
     //Step 4 execute command from the correct subcommand class
-    if (_subcommands.count(_flintParams.cmd) == 0) {
-        // should not be reached
-        printf("-E- FATAL: command object not found.");
-        return FLINT_FAILED;
-    }
     _subcommands[_flintParams.cmd]->setParams(_flintParams);
     return _subcommands[_flintParams.cmd]->executeCommand();
 }
