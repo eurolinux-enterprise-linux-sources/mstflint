@@ -115,7 +115,8 @@ subdir = mstdump/crd_main
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -126,10 +127,11 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_mstregdump_OBJECTS = mstregdump-mstdump.$(OBJEXT)
 mstregdump_OBJECTS = $(am_mstregdump_OBJECTS)
+am__DEPENDENCIES_1 =
 mstregdump_DEPENDENCIES = ../crd_lib/libcrdump.a \
 	../../dev_mgt/libdev_mgt.a ../../reg_access/libreg_access.a \
 	../../tools_layouts/libtools_layouts.a \
-	../../mtcr_ul/libmtcr_ul.a
+	../../${MTCR_CONF_DIR}/libmtcr_ul.a $(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -209,8 +211,10 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -227,6 +231,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
+ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -237,15 +242,20 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LDL = @LDL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
+MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
+MLXFWUPDATE = @MLXFWUPDATE@
+MTCR_CONF_DIR = @MTCR_CONF_DIR@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -266,7 +276,9 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
+TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
@@ -291,6 +303,7 @@ build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_en_inband = @default_en_inband@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
@@ -328,7 +341,7 @@ AM_CPPFLAGS = -I$(top_srcdir) -I$(srcdir)/../crd_lib -I$(top_srcdir)/include/mtc
 AM_CFLAGS = -MD -pipe -g -Wall -W
 mstregdump_SOURCES = mstdump.c
 mstregdump_LDADD = ../crd_lib/libcrdump.a ../../dev_mgt/libdev_mgt.a ../../reg_access/libreg_access.a ../../tools_layouts/libtools_layouts.a \
-			../../mtcr_ul/libmtcr_ul.a  -lm -ldl
+			../../${MTCR_CONF_DIR}/libmtcr_ul.a  -lm ${LDL}
 
 mstregdump_CFLAGS = -DMSTDUMP_NAME=\"mstregdump\" -DDEV_EXAMPLE=\"0b:00.0\"
 all: all-am

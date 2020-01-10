@@ -147,6 +147,7 @@ private:
     MlxCfgInfo createVPISettings();
     MlxCfgInfo createWakeOnLAN();
     MlxCfgInfo createBootSettingsExt();
+    MlxCfgInfo createCX3GlobalConf();
     MlxCfgInfo createQoS();
     MlxCfgInfo createLLDPClientSettings();
     MlxCfgInfo createLLDPNBDCBX();
@@ -165,6 +166,7 @@ private:
     bool isLegal(mlxCfgParam cfg);
     int openComChk();
     mlxCfgType cfgParam2Type(mlxCfgParam param);
+    void freeCfgList();
 public:
     FourthGenCommander(mfile* mf, std::string dev);
     ~FourthGenCommander();

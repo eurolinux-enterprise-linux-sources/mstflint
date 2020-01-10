@@ -46,7 +46,7 @@ public:
     virtual ~Fs2Operations()  {};
     //virtual void print_type() {};
     virtual bool FwQuery(fw_info_t *fwInfo, bool readRom = true, bool isStripedImage = false);
-    virtual bool FwVerify(VerifyCallBack verifyCallBackFunc, bool isStripedImage = false, bool showItoc = false);
+    virtual bool FwVerify(VerifyCallBack verifyCallBackFunc, bool isStripedImage = false, bool showItoc = false, bool ignoreDToc = false);
 
     virtual bool FwBurn(FwOperations *imageOps, u_int8_t forceVersion, ProgressCallBack progressFunc=(ProgressCallBack)NULL);
     virtual bool FwBurnAdvanced(FwOperations *imageOps, ExtBurnParams& burnParams);
@@ -78,6 +78,7 @@ public:
     virtual bool FwReadRom(std::vector<u_int8_t>& romSect);
     virtual bool FwCalcMD5(u_int8_t md5sum[16]);
 
+    bool FwCheckIfWeCanBurnWithFwControl(FwOperations*) {return false;}
 
 private:
 

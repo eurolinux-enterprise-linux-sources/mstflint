@@ -195,7 +195,10 @@ bool FImage::read(u_int32_t addr, void *data, int len, bool verbose, const char*
             if (!fh) {
                 return errmsg("Can not open file \"%s\" - %s", _fname, strerror(errno));
             }
-            fseek(fh, phys_addr, SEEK_SET);
+            if (fseek(fh, phys_addr, SEEK_SET) != 0) {
+                fclose(fh);
+                return errmsg("Failed to read from FW file, offset: %#x - %s", phys_addr, strerror(errno));
+            }
             if (fread((u_int8_t*)data + (chunk_addr - addr), chunk_size, 1, fh) != 1) {
                 fclose(fh);
                 return errmsg("Failed to read from FW file, offset: %#x - %s", phys_addr, strerror(errno));
@@ -295,7 +298,12 @@ bool FImage::getFileSize(int& fileSize)
 bool FImage::write(u_int32_t addr, void* data, int cnt)
 {
     if ( !_isFile ) {
-        return errmsg("Cannot perform write to file. no file specified.");
+        if (_buf.size() < addr + cnt) {
+            _buf.resize(addr + cnt);
+        }
+
+        memcpy(&_buf[addr], data, cnt);
+        return true;
     }
 
     if (!readWriteCommCheck(addr, 0)) {
@@ -339,7 +347,7 @@ bool Flash::open_com_checks(const char *device, int rc, bool force_lock)
         }
         if (rc == MFE_LOCKED_CRSPACE) {
             _cr_space_locked = 1;
-            return errmsgAdv(_advErrors, "HW access is disabled on the device.", "\n-E- Run \"flint -d %s hw_access enable\" in order to enable HW access.", device);
+            return errmsgAdv(_advErrors, "HW access is disabled on the device.", "\n-E- Run \"flint -d %s hw_access enable [key]\" in order to enable HW access.", device);
         }
         if (rc == MFE_REG_ACCESS_NOT_SUPPORTED) {
             return errmsgAdv(_advErrors, "The target device FW does not support flash access commands.", "\n-E- Please use the -override_cache_replacement option in order to access the flash directly.");
@@ -756,10 +764,28 @@ bool Flash::enable_hw_access(u_int64_t key)
     return true;
 }
 
+
+bool Flash::is_fifth_gen()
+{
+    return mf_is_fifth_gen(_mfl);
+}
+
 bool Flash::disable_hw_access(void)
 {
     int rc;
     rc = mf_disable_hw_access(_mfl);
+
+    if (rc != MFE_OK) {
+        return errmsg("Disable HW access failed: %s", mf_err2str(rc));
+    }
+    return true;
+
+}
+
+bool Flash::disable_hw_access(u_int64_t key)
+{
+    int rc;
+    rc = mf_disable_hw_access_with_key(_mfl, key);
 
     if (rc != MFE_OK) {
         return errmsg("Disable HW access failed: %s", mf_err2str(rc));
@@ -886,6 +912,9 @@ bool  Flash::set_attr(char *param_name, char *param_val_str)
                 if (*endp != '\0') {
                     return errmsg("bad argument (%s), only integer value is allowed.", num_str);
                 }
+                if (!protect_info.sectors_num) {
+                    return errmsg("Invalid sectors number, Use \"Disabled\" instead.");
+                }
            }
             rc = mf_set_write_protect(_mfl, bank_num, &protect_info);
             if (rc != MFE_OK) {
@@ -908,6 +937,7 @@ bool Flash::is_flash_write_protected()
     int rc;
     write_protect_info_t protect_info;
 
+    memset(&protect_info, 0x0, sizeof(protect_info));
     if (_attr.write_protect_support) {
         for (bank = 0; bank < _attr.banks_num; bank++) {
             rc = mf_get_write_protect(_mfl, bank, &protect_info);

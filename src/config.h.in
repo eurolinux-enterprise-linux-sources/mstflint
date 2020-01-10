@@ -6,6 +6,9 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the `boost_regex' library (-lboost_regex). */
+#undef HAVE_LIBBOOST_REGEX
+
 /* Define to 1 if you have the `xml2' library (-lxml2). */
 #undef HAVE_LIBXML2
 

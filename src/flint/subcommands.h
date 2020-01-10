@@ -47,6 +47,7 @@
 
 #include "flint_params.h"
 #include "mlxfwops/lib/fw_ops.h"
+#include "mlxfwops/lib/fs_checks.h"
 #include "err_msgs.h"
 using namespace std;
 
@@ -89,13 +90,14 @@ protected:
     string _example;
     char  _errBuff[FLINT_ERR_LEN];
     sub_cmd_t _cmdType;
-
+    bool _mccSupported;
 
     //Methods that are commonly used in the various subcommands:
     //TODO: add middle classes and segregate as much of these common methods between these classes
 
     virtual bool verifyParams() {return true;};
     bool basicVerifyParams();
+    void initDeviceFwParams(char* errBuff, FwOperations::fw_ops_params_t& fwParams);
     FlintStatus openOps();
     FlintStatus openIo();
     virtual FlintStatus preFwOps();
@@ -104,11 +106,15 @@ protected:
     bool getRomsInfo(FBase* io, roms_info_t& romsInfo);
     void displayOneExpRomInfo(const rom_info_t& info);
     void displayExpRomInfo(const roms_info_t& romsInfo, const char *preStr);
+    string getExpRomVerStr(const rom_info_t& info);
+    string getRomProtocolStr(u_int8_t proto);
+    string getRomSuppCpuStr(u_int8_t suppCpu);
 
     static int verifyCbFunc(char* str);
     static int CbCommon(int completion, char*preStr, char* endStr=NULL);
     static int burnCbFs2Func(int completion);
     static int burnCbFs3Func(int completion);
+    static int advProgressFunc(int completion, const char* stage, prog_t type, int* unknownProgress);
     static int burnBCbFunc(int completion);
     static int vsdCbFunc(int completion);
     static int setKeyCbFunc(int completion);
@@ -145,11 +151,11 @@ protected:
 
     bool dumpFile(const char* confFile, std::vector<u_int8_t>& data, const char *sectionName);
     bool unzipDataFile (std::vector<u_int8_t> data, std::vector<u_int8_t> &newData, const char *sectionName);
-
+    const char* fwImgTypeToStr(u_int8_t fwImgType);
 
 
 public:
-    SubCommand(): _fwOps(NULL), _imgOps(NULL), _io(NULL), _v(Wtv_Uninitilized), _maxCmdParamNum(-1),  _minCmdParamNum(-1)
+    SubCommand(): _fwOps(NULL), _imgOps(NULL), _io(NULL), _v(Wtv_Uninitilized), _maxCmdParamNum(-1),  _minCmdParamNum(-1), _mccSupported(false)
     {
         _cmdType = SC_No_Cmd;
         memset(_errBuff, 0, sizeof(_errBuff));
@@ -175,7 +181,9 @@ private:
     fw_info_t _imgInfo;
     FwOperations::ExtBurnParams _burnParams;
     bool _devQueryRes;
+    int _unknownProgress; // used to trace the progress of unknown progress.
 
+    FlintStatus checkFs3Fs4NeededFixes(bool& isFs3Fs4FixesNeeded);
     FlintStatus burnFs3();
     FlintStatus burnFs2();
     bool checkFwVersion();
@@ -195,6 +203,7 @@ public:
 class QuerySubCommand : public SubCommand
 {
 private:
+    string printSecurityAttrInfo(u_int32_t m);
     FlintStatus printInfo(const fw_info_t& fwInfo, bool fullQuery);
     bool displayFs3Uids(const fw_info_t& fwInfo);
     bool displayFs2Uids(const fw_info_t& fwInfo);
@@ -204,6 +213,44 @@ public:
     ~QuerySubCommand();
     FlintStatus executeCommand();
     bool verifyParams();
+};
+
+class Extract4MBImageSubCommand : public SubCommand
+{
+private:
+public:
+    Extract4MBImageSubCommand();
+    ~Extract4MBImageSubCommand();
+    FlintStatus executeCommand();
+};
+
+
+class SignSubCommand : public SubCommand
+{
+private:
+public:
+    SignSubCommand();
+    ~SignSubCommand();
+    FlintStatus executeCommand();
+    bool verifyParams();
+};
+
+class SetPublicKeysSubCommand : public SubCommand
+{
+private:
+public:
+    SetPublicKeysSubCommand();
+    ~SetPublicKeysSubCommand();
+    FlintStatus executeCommand();
+};
+
+class SetForbiddenVersionsSubCommand : public SubCommand
+{
+private:
+public:
+    SetForbiddenVersionsSubCommand();
+    ~SetForbiddenVersionsSubCommand();
+    FlintStatus executeCommand();
 };
 
 class VerifySubCommand : public SubCommand

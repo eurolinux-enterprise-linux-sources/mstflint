@@ -52,6 +52,7 @@ FlintParams::FlintParams()
     blank_guids = false;
     clear_semaphore = false;
     quick_query = true;  //should now be true by default
+    skip_rom_query = false;
     image_specified = false;
     nofs = false;
     allow_psid_change = false;
@@ -83,6 +84,11 @@ FlintParams::FlintParams()
     use_dev_img_info = false;
     skip_ci_req = false;
     use_dev_rom = false;
+    privkey_specified = false;
+    privkey2_specified = false;
+    uuid_specified = false;
+    uuid2_specified = false;
+    no_fw_ctrl = false;
 }
 
 FlintParams::~FlintParams()

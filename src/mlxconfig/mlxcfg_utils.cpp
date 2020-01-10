@@ -41,6 +41,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <stdio.h>
+#include <iomanip>
 #include <mft_sig_handler.h>
 #include <bit_slice.h>
 #include <cmdif/tools_cif.h>
@@ -73,7 +74,11 @@ MError mnvaCom5thGen(mfile* mf, u_int8_t* buff, u_int16_t len, u_int32_t tlvType
     struct tools_open_nvda mnvaTlv;
     memset(&mnvaTlv, 0, sizeof(struct tools_open_nvda));
 
-    mnvaTlv.nv_hdr.length = len;
+    if (method == REG_ACCESS_METHOD_GET) {
+        mnvaTlv.nv_hdr.length = sizeof(mnvaTlv.data);
+    } else {
+        mnvaTlv.nv_hdr.length = len;
+    }
     mnvaTlv.nv_hdr.rd_en = 0;
     mnvaTlv.nv_hdr.over_en = 1;
     mnvaTlv.nv_hdr.writer_id = WRITER_ID_ICMD_MLXCONFIG;
@@ -122,6 +127,31 @@ MError nvqcCom5thGen(mfile* mf, u_int32_t tlvType, bool& suppRead,
     return ME_OK;
 }
 
+MError nvdiCom5thGen(mfile* mf, u_int32_t tlvType)
+{
+    struct tools_open_nvdi nvdiTlv;
+    memset(&nvdiTlv, 0, sizeof(struct tools_open_nvdi));
+
+    nvdiTlv.nv_hdr.length = 0;
+    nvdiTlv.nv_hdr.rd_en = 0;
+    nvdiTlv.nv_hdr.over_en = 1;
+
+    // tlvType should be in the correct endianess
+    nvdiTlv.nv_hdr.type.tlv_type_dw.tlv_type_dw =  __be32_to_cpu(tlvType);
+
+    MError rc;
+    // "suspend" signals as we are going to take semaphores
+    mft_signal_set_handling(1);
+    // DEBUG_PRINT_SEND(&nvdiTlv, nvdi);
+    rc = reg_access_nvdi(mf, REG_ACCESS_METHOD_SET, &nvdiTlv);
+    // DEBUG_PRINT_RECIEVE(&nvdiTlv, nvdi);
+    dealWithSignal();
+    if (rc) {
+        return rc;
+    }
+    return ME_OK;
+}
+
 bool strToNum(string str, u_int32_t& num, int base)
 {
     char *endp;
@@ -139,9 +169,14 @@ bool strToNum(string str, u_int32_t& num, int base)
     return true;
 }
 
-string numToStr(u_int32_t num)
+string numToStr(u_int32_t num, bool isHex)
 {
     stringstream ss;
+
+    if (isHex) {
+        ss << std::uppercase << std::setfill('0') << std::setw(4) << std::hex;
+    }
+
     ss << num;
     return ss.str();
 }
@@ -225,12 +260,81 @@ string writerIdToStr(WriterId writerId)
     }
 };
 
+
+void copyDwVectorToBytesVector(const vector<u_int32_t>& dwV, vector<u_int8_t>& bV)
+{
+    bV.resize(dwV.size() << 2);
+    memcpy(bV.data(), dwV.data(), bV.size());
+}
+
+void copyBytesVectorToDwVector(const vector<u_int8_t>& bV, vector<u_int32_t>& dwV)
+{
+    dwV.resize(bV.size() >> 2);
+    memcpy(dwV.data(), bV.data(), bV.size());
+}
+
+string parseIndexStr(const string& indexedMlxconfigName)
+{
+    return indexedMlxconfigName.substr(indexedMlxconfigName.find('[') + 1,
+                             indexedMlxconfigName.find(']') - indexedMlxconfigName.find('[') - 1);
+}
+
+void parseIndexedMlxconfigName(const string& indexedMlxconfigName, string& mlxconfigName, u_int32_t& index)
+{
+   string indexStr = parseIndexStr(indexedMlxconfigName);
+
+    if (!strToNum(indexStr, index)) {
+       throw MlxcfgException("Can not parse the index of %s\n", indexedMlxconfigName.c_str());
+    }
+
+    mlxconfigName = indexedMlxconfigName.substr(0, indexedMlxconfigName.find('['));
+}
+
+void extractIndexes(const string& indexesStr, vector<u_int32_t>& indexes)
+{
+    if (indexesStr.find("..") != string::npos) {
+        unsigned int leftIndex = 0, rightIndex = 0;
+        string leftIndexStr = indexesStr.substr(0, indexesStr.find(".."));
+        string rightIndexStr = indexesStr.substr(indexesStr.find("..") + 2);
+        if (!strToNum(leftIndexStr, leftIndex)) {
+            throw MlxcfgException("Can not parse the index %s", leftIndexStr.c_str());
+        }
+        if (!strToNum(rightIndexStr, rightIndex)) {
+            throw MlxcfgException("Can not parse the index %s", rightIndexStr.c_str());
+        }
+        if (leftIndex > rightIndex) {
+            throw MlxcfgException("Left index %d can not be greater than right index %d",
+                                   leftIndex, rightIndex);
+        }
+        while (rightIndex >= leftIndex) {
+            indexes.push_back(leftIndex);
+            leftIndex++;
+        }
+    } else {
+        u_int32_t index = 0;
+        if (!strToNum(indexesStr, index)) {
+            throw MlxcfgException("Can not parse the index %s", indexesStr.c_str());
+        }
+        indexes.push_back(index);
+    }
+    
+}
+
+bool isIndexedMlxconfigName(const string& mlxconfigName)
+{
+    return (mlxconfigName.find("[") != string::npos);
+}
+
 MlxcfgException::MlxcfgException(const char* fmt, ...){
-    char tmp[1024];
+    const unsigned int max = 1024;
+    char tmp[max];
     va_list args;
 
     va_start (args, fmt);
-    vsprintf(tmp, fmt, args);
+    vsnprintf(tmp, max, fmt, args);
     va_end(args);
     _err = tmp;
 }
+
+
+

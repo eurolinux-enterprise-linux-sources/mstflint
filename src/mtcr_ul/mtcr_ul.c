@@ -276,3 +276,16 @@ int mclear_pci_semaphore(const char* name)
     return mclear_pci_semaphore_ul(name);
 }
 
+int mvpd_read4(mfile *mf, unsigned int offset, u_int8_t value[4])
+{
+    return mvpd_read4_ul(mf, offset, value);
+}
+
+int mvpd_write4(mfile *mf, unsigned int offset, u_int8_t value[4])
+{
+    (void)mf;
+    (void)offset;
+    (void)value;
+    return ME_UNSUPPORTED_OPERATION;
+}
+

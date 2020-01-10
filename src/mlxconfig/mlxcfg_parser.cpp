@@ -60,12 +60,8 @@ using namespace std;
 
 static void printFlagLine(string flag_s, string flag_l, string param, string desc)
 {
-    printf(IDENT2"-%s|--%s", flag_s.c_str(), flag_l.c_str());
-    if (param.length()) {
-        printf(" <%s>", param.c_str());
-    } else if (flag_l.length() < 8){
-        printf("\t");
-    }
+    string flags = "-" + flag_s + "|--" + flag_l + (param.length() ?  " <" + param + ">" : "");
+    printf(IDENT2"%-16s", flags.c_str());
     printf(IDENT3": %s\n", desc.c_str());
 }
 
@@ -79,7 +75,7 @@ void MlxCfg::printHelp()
 {
     // print opening
     printf(IDENT"NAME:\n"
-           IDENT2   MLXCFG_NAME "\n"
+           IDENT2   MLXCFG_NAME"\n"
            IDENT"SYNOPSIS:\n"
            IDENT2    MLXCFG_NAME " [Options] <Commands> [Parameters]\n");
 
@@ -94,6 +90,8 @@ void MlxCfg::printHelp()
     printFlagLine("e", "enable_verbosity", "", "Show default and current configurations.");
     printFlagLine("y", "yes", "", "Answer yes in prompt.");
     printFlagLine("a", "all_attrs", "", "Show all attributes in the XML template");
+    printFlagLine("p", "private_key", "", "pem file for private key");
+    printFlagLine("u", "key_uuid", "", "keypair uuid");
 
     //print commands
     printf("\n");
@@ -109,6 +107,9 @@ void MlxCfg::printHelp()
     printf(IDENT2"%-24s : %s\n","g[en_xml_template]", "Generate XML template. TLVs input file name and XML output file name must be specified. (*)");
     printf(IDENT2"%-24s : %s\n","xml2raw", "Generate Raw file from XML file. XML input file name and raw output file name must be specified. (*)");
     printf(IDENT2"%-24s : %s\n","raw2xml", "Generate XML file from Raw file. raw input file name and XML output file name must be specified. (*)");
+    printf(IDENT2"%-24s : %s\n","xml2bin", "Generate Bin file from XML file. XML input file name and bin output file name must be specified. (*)");
+    printf(IDENT2"%-24s : %s\n","create_conf", "Generate Configuration file from XML file. XML input file name and bin output file name must be specified. (*)");
+    printf(IDENT2"%-24s : %s\n","apply", "Apply a Configuration file. bin input file name must be specified. (*)");
 
     // print supported commands
     printf("\n");
@@ -144,11 +145,6 @@ void MlxCfg::printUsage() {
 }
 
 bool MlxCfg::tagExsists(string tag) {
-    /*for (std::vector<cfgInfo>::iterator it = _mlxParams.params.begin() ; it != _mlxParams.params.end(); it++) {
-        if (it->first == tag) {
-            return true;
-        }
-    }*/
     VECTOR_ITERATOR(ParamView, _mlxParams.setParams, it) {
         if (it->mlxconfigName == tag) {
             return true;
@@ -159,10 +155,11 @@ bool MlxCfg::tagExsists(string tag) {
 
 inline const char* cmdNVInputFileTag(mlxCfgCmd cmd, const char* def)
 {
-    return (cmd == Mc_XML2Raw) ?
+    return (cmd == Mc_XML2Raw || cmd == Mc_XML2Bin || cmd == Mc_CreateConf) ?
             "XML" : (cmd == Mc_Raw2XML) ?
             "Raw" : (cmd == Mc_GenXMLTemplate) ?
-            "TLVs" : def;
+            "TLVs" : (cmd == Mc_Apply) ?
+            "Configuration" : def;
 }
 
 inline const char* cmdNVOutputFileTag(mlxCfgCmd cmd, const char* def)
@@ -170,7 +167,9 @@ inline const char* cmdNVOutputFileTag(mlxCfgCmd cmd, const char* def)
     return (cmd == Mc_XML2Raw) ?
             "Raw" : (cmd == Mc_Raw2XML) ?
             "XML" : (cmd == Mc_GenXMLTemplate) ?
-            "XML" : def;
+            "XML" : (cmd == Mc_XML2Bin) ?
+            "Bin" : (cmd == Mc_CreateConf) ?
+            "Configuration" : def;
 }
 
 mlxCfgStatus MlxCfg::extractNVInputFile(int argc, char* argv[])
@@ -193,8 +192,38 @@ mlxCfgStatus MlxCfg::extractNVOutputFile(int argc, char* argv[])
     return MLX_CFG_OK;
 }
 
+mlxCfgStatus MlxCfg::extractQueryCfgArgs(int argc, char* argv[])
+{
+    int i = 0;
 
-mlxCfgStatus MlxCfg::extractCfgArgs(int argc, char* argv[])
+    for (;i < argc;i++) {
+        ParamView pv;
+        string mlxconfigName = argv[i];
+        if (isIndexedMlxconfigName(mlxconfigName)) {
+            string indexStr = parseIndexStr(mlxconfigName);
+            vector<u_int32_t> indexes;
+            extractIndexes(indexStr, indexes);
+            if (indexes.size() > 1) {
+                mlxconfigName = mlxconfigName.substr(0, mlxconfigName.find('['));
+                VECTOR_ITERATOR(u_int32_t, indexes, it) {
+                    ParamView paramView;
+                    paramView.mlxconfigName = mlxconfigName + "[" + numToStr(*it) + "]";
+                    _mlxParams.setParams.push_back(paramView);
+                }
+                continue;
+            } else {
+                pv.mlxconfigName = mlxconfigName;
+            }
+        } else {
+            pv.mlxconfigName = mlxconfigName;
+        }
+        _mlxParams.setParams.push_back(pv);
+    }
+
+    return MLX_CFG_OK;
+}
+
+mlxCfgStatus MlxCfg::extractSetCfgArgs(int argc, char* argv[])
 {
     int i = 0;
     string tag, strVal;
@@ -222,13 +251,30 @@ mlxCfgStatus MlxCfg::extractCfgArgs(int argc, char* argv[])
         }
 
         ParamView pv;
-        pv.mlxconfigName = tag;
+
+        if (isIndexedMlxconfigName(tag)) {
+            string indexStr = parseIndexStr(tag);
+            vector<u_int32_t> indexes;
+            extractIndexes(indexStr, indexes);
+            if (indexes.size() > 1) {
+                string mlxconfigName = tag.substr(0, tag.find('['));
+                VECTOR_ITERATOR(u_int32_t, indexes, it) {
+                    ParamView paramView;
+                    paramView.setVal = strVal;
+                    paramView.mlxconfigName = mlxconfigName + "[" + numToStr(*it) + "]";
+                    _mlxParams.setParams.push_back(paramView);
+                }
+                continue;
+            } else {
+                pv.mlxconfigName = tag;
+            }
+        } else {
+            pv.mlxconfigName = tag;
+        }
+
         pv.setVal = strVal;
         _mlxParams.setParams.push_back(pv);
 
-        /*_mlxParams.params.push_back(cfgInfo((mlxCfgParam)param, val));
-        _mlxParams.tparams.push_back(tag);
-        _mlxParams.vals.push_back(valstr);*/
     }
     return MLX_CFG_OK;
 }
@@ -267,6 +313,16 @@ mlxCfgStatus MlxCfg::parseArgs(int argc, char* argv[])
             _mlxParams.enableVerbosity = true;
         } else if (arg == "-a" || arg == "--all_attrs") {
             _mlxParams.allAttrs = true;
+        } else if (arg == "-p" || arg == "--private_key") {
+            if (++i == argc) {
+                return err(true, "missing file name");
+            }
+            _mlxParams.privPemFile = argv[i];
+        } else if (arg == "-u" || arg == "--key_uuid") {
+            if (++i == argc) {
+                return err(true, "missing file name");
+            }
+            _mlxParams.keyPairUUID = argv[i];
         } else if (arg == "set" || arg == "s") {
             _mlxParams.cmd = Mc_Set;
             break;
@@ -300,6 +356,15 @@ mlxCfgStatus MlxCfg::parseArgs(int argc, char* argv[])
         } else if (arg == "xml2raw" || arg == "x") {
             _mlxParams.cmd = Mc_XML2Raw;
             break;
+        } else if (arg == "xml2bin") {
+            _mlxParams.cmd = Mc_XML2Bin;
+            break;
+        } else if (arg == "create_conf") {
+            _mlxParams.cmd = Mc_CreateConf;
+            break;
+        } else if (arg == "apply") {
+            _mlxParams.cmd = Mc_Apply;
+            break;
         } else if (arg == "show_confs" || arg == "i"){
             _mlxParams.cmd = Mc_ShowConfs;
             break;
@@ -318,16 +383,17 @@ mlxCfgStatus MlxCfg::parseArgs(int argc, char* argv[])
     if (i == argc && _mlxParams.cmd == Mc_Set) {
         return err(true, "missing configuration arguments. For more information please run " MLXCFG_NAME " -h|--help.");
     }
-    if (i != argc && (_mlxParams.cmd == Mc_Reset || _mlxParams.cmd == Mc_Query)) {
-        return err(true, "%s command expects no argument but %d argument received", (_mlxParams.cmd == Mc_Reset) ? "reset" : "query", argc -i);
+    if (i != argc && (_mlxParams.cmd == Mc_Reset)) {
+        return err(true, "%s command expects no argument but %d argument received", "reset", argc -i);
     }
-    if ((_mlxParams.cmd == Mc_Set || _mlxParams.cmd == Mc_Clr_Sem || _mlxParams.cmd == Mc_Set_Raw || _mlxParams.cmd == Mc_Backup || _mlxParams.cmd == Mc_ShowConfs) && _mlxParams.device.length() == 0) {
+    if ((_mlxParams.cmd == Mc_Set || _mlxParams.cmd == Mc_Clr_Sem || _mlxParams.cmd == Mc_Set_Raw || _mlxParams.cmd == Mc_Backup || _mlxParams.cmd == Mc_ShowConfs || _mlxParams.cmd == Mc_Apply) && _mlxParams.device.length() == 0) {
         return err(true, "%s command expects device to be specified.",
                 _mlxParams.cmd == Mc_Set ?
                         "set" : _mlxParams.cmd == Mc_Set_Raw ?
                                 "set_raw" : _mlxParams.cmd == Mc_Clr_Sem ?
                                         "clear_semaphore" : _mlxParams.cmd == Mc_Backup ?
-                                        "backup" : "show_confs");
+                                        "backup" : _mlxParams.cmd == Mc_Apply ?
+                                         "apply" : "show_confs");
     }
     if ((_mlxParams.cmd == Mc_Set_Raw && _mlxParams.rawTlvFile.size() == 0 )) {
         return err(true, "set_raw command expects raw TLV file to be specified.");
@@ -343,15 +409,37 @@ mlxCfgStatus MlxCfg::parseArgs(int argc, char* argv[])
     if (_mlxParams.cmd == Mc_GenTLVsFile) {
         return extractNVOutputFile(argc-i, &(argv[i]));
     }
+
+    if (_mlxParams.cmd == Mc_Apply) {
+        return extractNVInputFile(argc - i, &(argv[i]));
+    }
+
+    if (_mlxParams.cmd == Mc_CreateConf &&
+            (_mlxParams.privPemFile.empty() ^ _mlxParams.keyPairUUID.empty())) {
+        return err(true, "if you want to sign the configuration file you have to provide private pem file and key pair uuid file");
+    }
+
     if (_mlxParams.cmd == Mc_GenXMLTemplate
             || _mlxParams.cmd == Mc_XML2Raw
-            || _mlxParams.cmd == Mc_Raw2XML) {
+            || _mlxParams.cmd == Mc_Raw2XML
+            || _mlxParams.cmd == Mc_XML2Bin
+            || _mlxParams.cmd == Mc_CreateConf) {
         mlxCfgStatus rc = extractNVInputFile(argc-i, &(argv[i]));
         if (rc != MLX_CFG_OK) {
             return rc;
         }
         return extractNVOutputFile(argc-i-1, &(argv[i+1]));
     }
-    return extractCfgArgs(argc-i, &(argv[i]));
+
+
+    try {
+        if (_mlxParams.cmd == Mc_Query) {
+            return extractQueryCfgArgs(argc - i, &(argv[i]));
+        } else {
+            return extractSetCfgArgs(argc-i, &(argv[i]));
+        }
+    } catch (MlxcfgException& e) {
+        return err(true, "%s", e._err.c_str());
+    }
 }
 

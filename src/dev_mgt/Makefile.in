@@ -46,7 +46,6 @@
 # SOFTWARE.
 #--
 
-# Makefile.am -- Process this file with automake to produce Makefile.in
 
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
@@ -114,9 +113,10 @@ build_triplet = @build@
 host_triplet = @host@
 subdir = dev_mgt
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(top_srcdir)/config/depcomp
+	$(top_srcdir)/config/depcomp $(dist_dev_mgt_pylib_DATA)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -178,6 +178,36 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+am__installdirs = "$(DESTDIR)$(dev_mgt_pylibdir)" \
+	"$(DESTDIR)$(dev_mgt_pylibdir)"
+DATA = $(dev_mgt_pylib_DATA) $(dist_dev_mgt_pylib_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
@@ -209,8 +239,10 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -227,6 +259,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
+ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -237,15 +270,20 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LDL = @LDL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
+MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
+MLXFWUPDATE = @MLXFWUPDATE@
+MTCR_CONF_DIR = @MTCR_CONF_DIR@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -266,7 +304,9 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
+TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
@@ -291,6 +331,7 @@ build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_en_inband = @default_en_inband@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
@@ -322,6 +363,9 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+
+# Makefile.am -- Process this file with automake to produce Makefile.in
+USER_DIR = ..
 AM_CPPFLAGS = -I$(srcdir) -I$(top_srcdir) -I$(top_srcdir)/common  -I$(top_srcdir)/include/mtcr_ul
 AM_CFLAGS = -W -Wall -g -MP -MD -Wswitch-enum $(COMPILER_FPIC) -DMTCR_EXPORT
 noinst_LIBRARIES = libdev_mgt.a
@@ -332,6 +376,10 @@ libdev_mgt_a_SOURCES = \
 						$(top_srcdir)/common/compatibility.h   \
 						$(top_srcdir)/common/tools_version.h
 
+dev_mgt_pylibdir = $(libdir)/mstflint/python_tools/
+dev_mgt_pylib_DATA = c_dev_mgt.so dev_mgt.py
+dist_dev_mgt_pylib_DATA = dev_mgt.py
+CLEANFILES = c_dev_mgt.so
 all: all-am
 
 .SUFFIXES:
@@ -409,6 +457,48 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+install-dev_mgt_pylibDATA: $(dev_mgt_pylib_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dev_mgt_pylib_DATA)'; test -n "$(dev_mgt_pylibdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(dev_mgt_pylibdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(dev_mgt_pylibdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(dev_mgt_pylibdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(dev_mgt_pylibdir)" || exit $$?; \
+	done
+
+uninstall-dev_mgt_pylibDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dev_mgt_pylib_DATA)'; test -n "$(dev_mgt_pylibdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(dev_mgt_pylibdir)'; $(am__uninstall_files_from_dir)
+install-dist_dev_mgt_pylibDATA: $(dist_dev_mgt_pylib_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(dist_dev_mgt_pylib_DATA)'; test -n "$(dev_mgt_pylibdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(dev_mgt_pylibdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(dev_mgt_pylibdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(dev_mgt_pylibdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(dev_mgt_pylibdir)" || exit $$?; \
+	done
+
+uninstall-dist_dev_mgt_pylibDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_dev_mgt_pylib_DATA)'; test -n "$(dev_mgt_pylibdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(dev_mgt_pylibdir)'; $(am__uninstall_files_from_dir)
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -494,8 +584,11 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LIBRARIES)
+all-am: Makefile $(LIBRARIES) $(DATA)
 installdirs:
+	for dir in "$(DESTDIR)$(dev_mgt_pylibdir)" "$(DESTDIR)$(dev_mgt_pylibdir)"; do \
+	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
+	done
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -518,6 +611,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -549,7 +643,8 @@ info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-dev_mgt_pylibDATA \
+	install-dist_dev_mgt_pylibDATA
 
 install-dvi: install-dvi-am
 
@@ -595,7 +690,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am:
+uninstall-am: uninstall-dev_mgt_pylibDATA \
+	uninstall-dist_dev_mgt_pylibDATA
 
 .MAKE: install-am install-strip
 
@@ -604,15 +700,23 @@ uninstall-am:
 	ctags-am distclean distclean-compile distclean-generic \
 	distclean-libtool distclean-tags distdir dvi dvi-am html \
 	html-am info info-am install install-am install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
+	install-data-am install-dev_mgt_pylibDATA \
+	install-dist_dev_mgt_pylibDATA install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am
+	tags tags-am uninstall uninstall-am \
+	uninstall-dev_mgt_pylibDATA uninstall-dist_dev_mgt_pylibDATA
 
+
+c_dev_mgt.so: libdev_mgt.a
+	$(CC) -g -Wall -pthread -shared ${CFLAGS} tools_dev_types.o -o c_dev_mgt.so \
+	-L$(USER_DIR)/reg_access -lreg_access \
+	-L$(USER_DIR)/tools_layouts -ltools_layouts \
+	-L$(USER_DIR)/${MTCR_CONF_DIR} -lmtcr_ul
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

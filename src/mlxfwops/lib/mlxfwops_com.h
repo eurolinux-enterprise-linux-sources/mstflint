@@ -58,8 +58,22 @@
     #define EFIAPI
 #endif
 
+typedef enum {
+    PROG_WITH_PRECENTAGE,
+    PROG_WITHOUT_PRECENTAGE,
+    PROG_STRING_ONLY,
+    PROG_OK
+} prog_t;
+
 typedef int EFIAPI (*f_prog_func) (int completion);
+typedef int EFIAPI (*f_prog_func_ex) (int completion, void * opaque);
+typedef int EFIAPI (*f_prog_func_adv) (int completion, const char* str, prog_t, void * opaque);
 typedef int (*f_prog_func_str) (char* str);
+
+typedef struct {
+    f_prog_func_adv func;
+    void* opaque;
+} f_prog_func_adv_st;
 
 #define VSD_LEN  208
 #define PSID_LEN 16
@@ -123,7 +137,29 @@ enum {
     MLXFW_PRS_MISMATCH_ERR,
     MLXFW_NO_VALID_DEVICE_INFO_ERR,
     MLXFW_TWO_VALID_DEVICE_INFO_ERR,
-    MLXFW_DTOC_OVERWRITE_CHUNK
+    MLXFW_DTOC_OVERWRITE_CHUNK,
+    MLXFW_FLASH_READ_ERR,
+
+    /* MCC_EN/Secure Error Codes */
+    MLXFW_BURN_REJECTED_DIGEST_ERR        ,
+    MLXFW_BURN_REJECTED_NOT_APPLICABLE    ,
+    MLXFW_BURN_REJECTED_UNKNOWN_KEY       ,
+    MLXFW_BURN_REJECTED_AUTH_FAILED       ,
+    MLXFW_BURN_REJECTED_UNSIGNED          ,
+    MLXFW_BURN_REJECTED_KEY_NOT_APPLICABLE,
+    MLXFW_BURN_REJECTED_BAD_FORMAT        ,
+    MLXFW_BURN_BLOCKED_PENDING_RESET      ,
+    MLXFW_FSM_UNEXPECTED_STATE            ,
+    MLXFW_REJECTED_NOT_A_SECURED_FW       ,
+    MLXFW_REJECTED_MFG_BASE_MAC_NOT_LISTED,
+    MLXFW_REJECTED_NO_DEBUG_TOKEN         ,
+    MLXFW_REJECTED_VERSION_NUM_MISMATCH   ,
+    MLXFW_REJECTED_USER_TIMESTAMP_MISMATCH,
+    MLXFW_REJECTED_FORBIDDEN_VERSION      ,
+    MLXFW_FLASH_ERASE_ERROR               ,
+    MLXFW_MISSING_IMAGE_SIGNATURE         ,
+    MLXFW_REJECTED_IMAGE_CAN_NOT_BOOT_FROM_PARTITION,
+    /* ******************* */
 };
 
 enum {
@@ -157,6 +193,22 @@ enum {
       BI_SYS_GUID = BX_ALL_GUIDS - 1,
 };
 
+typedef enum security_mode_mask {
+    SMM_MCC_EN    = 0x1,
+    SMM_DEBUG_FW  = 0x2,
+    SMM_SIGNED_FW = 0x4,
+    SMM_SECURE_FW = 0x8,
+    SMM_DEV_FW    = 0x10
+} security_mode_mask_t;
+
+typedef enum security_mode {
+    SM_NONE         = 0x0,
+    SM_SHA_DIGEST   = SMM_MCC_EN,
+    SM_SIGNED_IMAGE = SMM_MCC_EN | SMM_SIGNED_FW,
+    SM_SECURE_FW    = SMM_MCC_EN | SMM_SIGNED_FW | SMM_SECURE_FW,
+    SM_DEBUG_FW     = SMM_MCC_EN | SMM_SIGNED_FW | SMM_SECURE_FW | SMM_DEBUG_FW
+} security_mode_t;
+
 typedef enum chip_type {
     CT_UNKNOWN = 0,
     CT_CONNECTX,
@@ -169,6 +221,10 @@ typedef enum chip_type {
     CT_CONNECTX4_LX,
     CT_SWITCH_IB2,
     CT_CONNECTX5,
+    CT_CONNECTX6,
+    CT_BLUEFIELD,
+    CT_QUANTUM,
+    CT_SPECTRUM2,
 }chip_type_t;
 
 typedef enum chip_family_type {
@@ -216,6 +272,7 @@ typedef struct rom_info {
     u_int8_t  exp_rom_port;
     u_int8_t  exp_rom_proto;
     u_int8_t  exp_rom_num_ver_fields;
+    u_int8_t  exp_rom_supp_cpu_arch;
     //char      expRomFreestr[FREE_STR_MAX_LEN];
 } rom_info_t;
 
@@ -254,6 +311,8 @@ typedef struct fs3_info_ext {
     char            orig_prs_name[FS3_PRS_NAME_LEN];
     char            name[NAME_LEN];
     char            description[DESCRIPTION_LEN];
+    u_int32_t       security_mode;
+    u_int8_t        mcc_en;
 
 } fs3_info_t;
 
@@ -339,6 +398,7 @@ typedef enum fw_img_type {
     FIT_FS3,
     FIT_FC1,
     FIT_FS4,
+    FIT_FSCTRL,
 } fw_img_type_t;
 
 
@@ -346,6 +406,14 @@ enum ExpRomProto {
     ER_IB  = 0,
     ER_ETH = 1,
     ER_VPI = 2
+};
+
+enum ExpRomCpuArch {
+    ERC_UNSPECIFIED  = 0,
+    ERC_AMD64 = 1,
+    ERC_AARCH64 = 2,
+    ERC_AMD64_AARCH64 = 3,
+    ERC_IA32 = 4
 };
 
 typedef enum fw_ver_info {

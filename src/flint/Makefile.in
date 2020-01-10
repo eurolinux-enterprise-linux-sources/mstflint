@@ -113,12 +113,16 @@ host_triplet = @host@
 bin_PROGRAMS = mstflint$(EXEEXT)
 @ENABLE_DC_TRUE@am__append_1 = -lz
 @ENABLE_DC_FALSE@am__append_2 = -DNO_ZLIB
-@ENABLE_OPENSSL_TRUE@am__append_3 = $(top_srcdir)/tools_crypto/libtools_crypto.a -lcrypto
+@ENABLE_CS_TRUE@am__append_3 = $(top_srcdir)/tools_crypto/libtools_crypto.a -lcrypto
+@ENABLE_INBAND_TRUE@am__append_4 = $(top_srcdir)/mad_ifc/libmad_ifc.a
+@ENABLE_OPENSSL_TRUE@am__append_5 = $(top_srcdir)/mlxsign_lib/libmlxsign.a -lcrypto
+@ENABLE_FWMGR_TRUE@am__append_6 = $(top_srcdir)/libmfa/libmfa.a $(top_srcdir)/ext_libs/minixz/libminixz.a
 subdir = flint
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -132,14 +136,20 @@ am_mstflint_OBJECTS = mstflint-flint.$(OBJEXT) \
 	mstflint-cmd_line_parser.$(OBJEXT)
 mstflint_OBJECTS = $(am_mstflint_OBJECTS)
 am__DEPENDENCIES_1 =
-@ENABLE_OPENSSL_TRUE@am__DEPENDENCIES_2 = $(top_srcdir)/tools_crypto/libtools_crypto.a
+@ENABLE_CS_TRUE@am__DEPENDENCIES_2 =  \
+@ENABLE_CS_TRUE@	$(top_srcdir)/tools_crypto/libtools_crypto.a
+@ENABLE_OPENSSL_TRUE@am__DEPENDENCIES_3 =  \
+@ENABLE_OPENSSL_TRUE@	$(top_srcdir)/mlxsign_lib/libmlxsign.a
 mstflint_DEPENDENCIES = ../mlxfwops/lib/libmlxfwops.a \
 	../cmdparser/libcmdparser.a ../mflash/libmflash.a \
 	../tools_res_mgmt/libtools_res_mgmt.a $(CMDIF_DIR)/libcmdif.a \
 	../reg_access/libreg_access.a ../dev_mgt/libdev_mgt.a \
-	../mtcr_ul/libmtcr_ul.a ../tools_layouts/libtools_layouts.a \
-	../mft_utils/libmftutils.a $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_2)
+	../${MTCR_CONF_DIR}/libmtcr_ul.a \
+	../tools_layouts/libtools_layouts.a \
+	../fw_comps_mgr/libfw_comps_mgr.a ../mft_utils/libmftutils.a \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_2) $(am__append_4) $(am__DEPENDENCIES_3) \
+	$(am__append_6)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -237,8 +247,10 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -255,6 +267,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
+ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -265,15 +278,20 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LDL = @LDL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
+MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
+MLXFWUPDATE = @MLXFWUPDATE@
+MTCR_CONF_DIR = @MTCR_CONF_DIR@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -294,7 +312,9 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
+TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
@@ -319,6 +339,7 @@ build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_en_inband = @default_en_inband@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
@@ -352,7 +373,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
-MTCR_DIR = $(top_srcdir)/mtcr_ul
+MTCR_DIR = $(top_srcdir)/${MTCR_CONF_DIR}
 MTCR_INC_DIR = $(top_srcdir)/include/mtcr_ul
 MFLASH_DIR = $(top_srcdir)/mflash
 COMMON_DIR = $(top_srcdir)/common
@@ -365,7 +386,7 @@ AM_CPPFLAGS = -I$(top_srcdir) -I$(srcdir) -I$(MTCR_DIR) -I$(MFLASH_DIR) -I$(COMM
 
 #get mst device examples and tool name from makefile
 mstflint_CXXFLAGS = -Wall -W -g -MP -MD -pipe -DEXTERNAL \
-	$(am__append_2) -DFLINT_NAME=\"mstflint\" \
+	$(COMPILER_FPIC) $(am__append_2) -DFLINT_NAME=\"mstflint\" \
 	-DFLINT_DISPLAY_NAME=\"MstFlint\" \
 	-DMST_DEV_EXAMPLE1=\"03:00.0\" -DMST_DEV_EXAMPLE2=\"mlx4_0\" \
 	-DMST_DEV_EXAMPLE3=\"03:00.0\" -DMST_DEV_EXAMPLE4=\"04:00.0\"
@@ -376,9 +397,11 @@ mstflint_LDADD = ../mlxfwops/lib/libmlxfwops.a \
 	../cmdparser/libcmdparser.a ../mflash/libmflash.a \
 	../tools_res_mgmt/libtools_res_mgmt.a $(CMDIF_DIR)/libcmdif.a \
 	../reg_access/libreg_access.a ../dev_mgt/libdev_mgt.a \
-	../mtcr_ul/libmtcr_ul.a ../tools_layouts/libtools_layouts.a \
-	../mft_utils/libmftutils.a $(LIBSTD_CPP) -ldl $(am__append_1) \
-	$(am__append_3)
+	../${MTCR_CONF_DIR}/libmtcr_ul.a \
+	../tools_layouts/libtools_layouts.a \
+	../fw_comps_mgr/libfw_comps_mgr.a ../mft_utils/libmftutils.a \
+	${LDL} $(am__append_1) $(am__append_3) $(am__append_4) \
+	$(am__append_5) $(am__append_6)
 all: all-am
 
 .SUFFIXES:

@@ -28,10 +28,19 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
 
 #ifndef __MTCR_MF__
 #define __MTCR_MF__
+
+
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/pciio.h>
+#endif
+
+typedef struct dma_lib_hdl_t dma_lib_hdl;
 
 typedef struct icmd_params_t {
         int icmd_opened;
@@ -44,6 +53,10 @@ typedef struct icmd_params_t {
         int static_cfg_not_done_offs;
         u_int32_t lock_key;
         int ib_semaphore_lock_supported;
+        void* dma_mbox;
+        u_int32_t mbox_mkey;
+        dma_lib_hdl* dma_lib_ctx;
+        int dma_icmd;
 } icmd_params;
 
 typedef struct ctx_params_t {
@@ -131,6 +144,13 @@ struct mfile_t {
         int is_cable;
         void* cable_ctx;
         f_mpci_change mpci_change;
+#ifdef __FreeBSD__
+        struct pcisel sel;
+        unsigned int vpd_cap_addr;
+        int wo_addr;
+        int connectx_flush;
+#endif
+
 };
 
 #endif

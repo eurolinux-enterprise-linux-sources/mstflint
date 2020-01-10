@@ -1,48 +1,74 @@
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	4.6.0
-Release:	2%{?dist}
+Version:	4.9.0
+Release:	3%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-Source: 	https://github.com/Mellanox/%{name}/releases/download/v%{version}-1/%{name}-%{version}.tar.gz
-Patch1: 	0001-Extend-buffer-for-a-few-arrays.patch
-Patch2: 	fix-issues-reported-by-lexgrog.patch
+# Source downloaded from https://github.com/Mellanox/%{name}/releases/download/v%{version}-3/%{name}-%{version}.tar.gz
+# Rename it as mstflint-4.9.0-3.tar.gz
+Source: 	mstflint-4.9.0-3.tar.gz
 Url:		https://github.com/Mellanox/mstflint
-BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel
+BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel, rdma-core-devel
+BuildRequires:  libcurl-devel, boost-devel, libxml2-devel, openssl-devel
 Obsoletes:	openib-mstflint <= 1.4 openib-tvflash <= 0.9.2 tvflash <= 0.9.0
 ExcludeArch:	s390 s390x
 
 %description
-This package contains a burning tool for Mellanox manufactured HCA cards.
-It also provides access to the relevant source code.
+This package contains firmware update tool, vpd dump and register dump tools
+for network adapters based on Mellanox Technologies chips.
 
 %prep
 %setup -q
-%patch1 -p1
-%patch2 -p1
 find . -type f -iname '*.[ch]' -exec chmod a-x '{}' ';'
 find . -type f -iname '*.cpp' -exec chmod a-x '{}' ';'
 
 %build
 export CFLAGS="$RPM_OPT_FLAGS"
 export CXXFLAGS="$RPM_OPT_FLAGS -std=gnu++98 -Wno-c++11-compat"
-%configure
+%configure --enable-fw-mgr
 %make_build
 
 %install
 make DESTDIR=%{buildroot} install
 # Remove the devel files that we don't ship
 rm -fr %{buildroot}%{_includedir}
-rm -fr %{buildroot}%{_libdir}
+find %{buildroot} -type f -name '*.la' -delete
+find %{buildroot} -type f -name libmtcr_ul.a -delete
 
 %files
 %doc README
 %_bindir/*
+%{_sysconfdir}/mstflint
+%{_libdir}/mstflint
 
 %{_datadir}/mstflint
 %{_mandir}/man1/*
 
 %changelog
+* Sun May  6 2018 Honggang Li <honli@redhat.com> - 4.9.0-3
+- Rebase to latest upstream release v4.9.0-3
+- Resolves: bz1541740
+
+* Tue Apr 17 2018 Honggang Li <honli@redhat.com> - 4.9.0-1
+- Rebase to latest upstream release v4.9.0-1
+- Resolves: bz1541740, bz1541489
+
+* Thu Dec  7 2017 Honggang Li <honli@redhat.com> - 4.8.0-3
+- Fixes mstvpd for mlx5 devices
+- Resolves: bz1515993
+
+* Sun Nov 12 2017 Honggang Li <honli@redhat.com> - 4.8.0-2
+- Remove redundant file from mstflint
+- Resolves: bz1512368
+
+* Wed Nov  1 2017 Honggang Li <honli@redhat.com> - 4.8.0-1
+- Rebase to upstream latest release 4.8.0
+- Resolves: bz1456545
+
+* Fri Oct  6 2017 Honggang Li <honli@redhat.com> - 4.7.0-1
+- Rebase to upstream latest release 4.7.0
+- Resolves: bz1456545
+
 * Tue Mar  7 2017 Honggang Li <honli@redhat.com> - 4.6.0-2
 - Fix manpage issues reported by lexgrog.
 - Resolves: bz948474

@@ -38,6 +38,7 @@
                         '/usr/share/aclocal-1.13/strip.m4',
                         '/usr/share/aclocal-1.13/substnot.m4',
                         '/usr/share/aclocal-1.13/tar.m4',
+                        'm4/ax_check_compile_flag.m4',
                         'configure.ac'
                       ],
                       {
@@ -105,6 +106,7 @@
                         'LT_SYS_MODULE_EXT' => 1,
                         'LT_PROG_RC' => 1,
                         'AC_DEFUN_ONCE' => 1,
+                        'AX_CHECK_COMPILE_FLAG' => 1,
                         '_LT_AC_LANG_GCJ' => 1,
                         'AC_LTDL_OBJDIR' => 1,
                         '_LT_PATH_TOOL_PREFIX' => 1,

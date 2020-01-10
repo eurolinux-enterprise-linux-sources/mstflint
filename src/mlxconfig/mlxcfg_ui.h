@@ -58,6 +58,9 @@ typedef enum {
     Mc_GenXMLTemplate,
     Mc_Raw2XML,
     Mc_XML2Raw,
+    Mc_XML2Bin,
+    Mc_CreateConf,
+    Mc_Apply,
     Mc_UnknownCmd
 } mlxCfgCmd;
 
@@ -67,8 +70,9 @@ class MlxCfgParams
 {
 public:
     MlxCfgParams() : device(), rawTlvFile(), NVInputFile(), NVOutputFile(),
-                     dbName(DB_NAME), allAttrs(false), cmd(Mc_UnknownCmd),
-                     yes(false), force(false), enableVerbosity(false) {}
+                     dbName(DB_NAME), privPemFile(), keyPairUUID(),
+                     allAttrs(false), cmd(Mc_UnknownCmd), yes(false),
+                     force(false), enableVerbosity(false) {}
     ~MlxCfgParams() {}
 
     std::string device;
@@ -76,6 +80,8 @@ public:
     std::string NVInputFile;
     std::string NVOutputFile;
     std::string dbName;
+    std::string privPemFile;
+    std::string keyPairUUID;
     bool allAttrs;
     mlxCfgCmd cmd;
     bool yes;
@@ -93,6 +99,11 @@ public:
     mlxCfgStatus execute(int argc, char* argv[]);
 private:
 
+    typedef enum {
+        Device_Name,
+        Device_Description_info
+    } deviceDescription;
+
     // User interface and parsing methods
     void printHelp();
     mlxCfgStatus showDevConfs();
@@ -104,9 +115,12 @@ private:
     //Helper functions for parse args
     mlxCfgStatus extractNVInputFile(int argc, char* argv[]);
     mlxCfgStatus extractNVOutputFile(int argc, char* argv[]);
-    mlxCfgStatus extractCfgArgs(int argc, char* argv[]);
+    mlxCfgStatus extractSetCfgArgs(int argc, char* argv[]);
+    mlxCfgStatus extractQueryCfgArgs(int argc, char* argv[]);
+
     bool tagExsists(string tag);
     const char* getDeviceName(const char* dev);
+    bool getDeviceDescription(const char* dev, MlxCfg::deviceDescription op, vector<char>& infoString);
 
     // Query cmd
     mlxCfgStatus queryDevsCfg();
@@ -125,6 +139,7 @@ private:
 
     mlxCfgStatus clrDevSem();
 
+    mlxCfgStatus readBinFile(string fileName, vector<u_int32_t>& buff);
     mlxCfgStatus readNVInputFile(vector<u_int32_t>& buff);
     mlxCfgStatus readNVInputFile(string& content);
     mlxCfgStatus readNVInputFile(vector<string>& lines);
@@ -139,6 +154,9 @@ private:
     mlxCfgStatus raw2XML();
     mlxCfgStatus XML2RawAux(bool isBin);
     mlxCfgStatus XML2Raw();
+    mlxCfgStatus XML2Bin();
+    mlxCfgStatus createConf();
+    mlxCfgStatus apply();
 
     bool askUser(const char* question);
     mlxCfgStatus err(bool report, const char* errMsg, ...);
@@ -147,6 +165,7 @@ private:
     MlxCfgParams _mlxParams;
     std::string _errStr;
     MlxCfgAllInfo _allInfo;
+    dm_dev_id_t _devType;
 
 };
 

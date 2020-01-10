@@ -47,6 +47,7 @@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
 
+
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -115,7 +116,8 @@ subdir = cmdif
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -178,6 +180,35 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+am__installdirs = "$(DESTDIR)$(cmdif_pylibdir)"
+DATA = $(cmdif_pylib_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
@@ -209,8 +240,10 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -227,6 +260,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
+ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -237,15 +271,20 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LDL = @LDL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
+MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
+MLXFWUPDATE = @MLXFWUPDATE@
+MTCR_CONF_DIR = @MTCR_CONF_DIR@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -266,7 +305,9 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
+TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
@@ -291,6 +332,7 @@ build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_en_inband = @default_en_inband@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
@@ -325,11 +367,15 @@ top_srcdir = @top_srcdir@
 USER_DIR = $(top_srcdir)
 MTCR_DIR = $(USER_DIR)/include/mtcr_ul
 TOOLS_LAYOUTS_DIR = $(USER_DIR)/tools_layouts
-AM_CPPFLAGS = -I. -I../common -I../tools_layouts  -I$(MTCR_DIR) -I.. -I$(USER_DIR)/mtcr_ul
+AM_CPPFLAGS = -I. -I../common -I../tools_layouts  -I${MTCR_DIR} -I.. -I$(USER_DIR)/${MTCR_CONF_DIR}
+CCMDIF_SO = ccmdif.so
 AM_CFLAGS = -W -Wall -Werror -g -MP -MD $(COMPILER_FPIC) -DCMDIF_EXPORTS
 CMDIF_VERSION = 1
 noinst_LIBRARIES = libcmdif.a
 libcmdif_a_SOURCES = tools_cif.c tools_cif.h icmd_cif_common.c icmd_cif_common.h icmd_cif_open.c icmd_cif_open.h
+cmdif_pylibdir = $(libdir)/mstflint/python_tools/
+cmdif_pylib_DATA = ${CCMDIF_SO} cmdif.py
+CLEANFILES = ${CCMDIF_SO}
 all: all-am
 
 .SUFFIXES:
@@ -409,6 +455,27 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+install-cmdif_pylibDATA: $(cmdif_pylib_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(cmdif_pylib_DATA)'; test -n "$(cmdif_pylibdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(cmdif_pylibdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(cmdif_pylibdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(cmdif_pylibdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(cmdif_pylibdir)" || exit $$?; \
+	done
+
+uninstall-cmdif_pylibDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(cmdif_pylib_DATA)'; test -n "$(cmdif_pylibdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(cmdif_pylibdir)'; $(am__uninstall_files_from_dir)
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -494,8 +561,11 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LIBRARIES)
+all-am: Makefile $(LIBRARIES) $(DATA)
 installdirs:
+	for dir in "$(DESTDIR)$(cmdif_pylibdir)"; do \
+	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
+	done
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -518,6 +588,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -549,7 +620,7 @@ info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-cmdif_pylibDATA
 
 install-dvi: install-dvi-am
 
@@ -595,7 +666,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am:
+uninstall-am: uninstall-cmdif_pylibDATA
 
 .MAKE: install-am install-strip
 
@@ -603,16 +674,20 @@ uninstall-am:
 	clean-libtool clean-noinstLIBRARIES cscopelist-am ctags \
 	ctags-am distclean distclean-compile distclean-generic \
 	distclean-libtool distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am
+	html-am info info-am install install-am \
+	install-cmdif_pylibDATA install-data install-data-am \
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-info install-info-am \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am uninstall-cmdif_pylibDATA
 
+${CCMDIF_SO}: libcmdif.a
+	$(CC) -g -Wall -pthread -shared ${CFLAGS} *.o -o ${CCMDIF_SO} \
+	-L$(USER_DIR)/tools_layouts -ltools_layouts -L$(USER_DIR)/${MTCR_CONF_DIR} -lmtcr_ul
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

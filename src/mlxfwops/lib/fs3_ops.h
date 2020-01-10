@@ -59,12 +59,15 @@
             _fwParams.ignoreCacheRep = 0;\
         }
 
+enum SHATYPE { SHA256, SHA512};
+
 class Fs3Operations : public FwOperations {
 public:
 
 
     Fs3Operations(FBase *ioAccess) : FwOperations(ioAccess), _imageCache(0xFF),
-        _isfuSupported(false), _badDevDataSections(false), _maxImgLog2Size(0){
+        _isfuSupported(false), _badDevDataSections(false), _maxImgLog2Size(0),
+        _signatureExists(0), _publicKeysExists(0) {
         _minBinMinorVer = FS3_MIN_BIN_VER_MINOR;
         _minBinMajorVer = FS3_MIN_BIN_VER_MAJOR;
         _maxBinMajorVer = FS3_MAX_BIN_VER_MAJOR;
@@ -72,7 +75,7 @@ public:
 
     virtual ~Fs3Operations()  {};
     //virtual void print_type() {printf("-D- FS3 type!\n");};
-    virtual bool FwVerify(VerifyCallBack verifyCallBackFunc, bool isStripedImage = false, bool showItoc = false);
+    virtual bool FwVerify(VerifyCallBack verifyCallBackFunc, bool isStripedImage = false, bool showItoc = false, bool ignoreDToc = false);
     virtual bool FwQuery(fw_info_t *fwInfo, bool readRom = true, bool isStripedImage = false);
     virtual u_int8_t FwType();
     virtual bool FwInit();
@@ -96,10 +99,26 @@ public:
     virtual bool FwResetNvData();
     virtual bool FwShiftDevData(PrintCallBack progressFunc=(PrintCallBack)NULL);
     virtual const char*  FwGetResetRecommandationStr();
+    virtual const char*  FwGetReSignMsgStr();
+
+    bool FwInsertSHA256(PrintCallBack printFunc=(PrintCallBack)NULL);
+    bool FwSignWithOneRSAKey(const char* privPemFile, const char* uuid, PrintCallBack printFunc=(PrintCallBack)NULL);
+    bool FwSignWithTwoRSAKeys(const char* privPemFile1, const char* uuid1,
+                const char* privPemFile2, const char* uuid2, PrintCallBack printFunc=(PrintCallBack)NULL);
+
+    bool FwInsertEncSHA(SHATYPE shaType, const char* privPemFile,
+            const char* uuid, PrintCallBack printFunc=(PrintCallBack)NULL);
+
+    virtual bool FwExtract4MBImage(vector<u_int8_t>& img, bool maskMagicPatternAndDevToc);
+    virtual bool FwSetPublicKeys(char* fname, PrintCallBack callBackFunc=(PrintCallBack)NULL);
+    virtual bool FwSetForbiddenVersions(char* fname, PrintCallBack callBackFunc=(PrintCallBack)NULL);
     virtual bool FwCalcMD5(u_int8_t md5sum[16]);
     virtual bool FwSetTimeStamp(struct tools_open_ts_entry& timestamp, struct tools_open_fw_version& fwVer);
     virtual bool FwQueryTimeStamp(struct tools_open_ts_entry& timestamp, struct tools_open_fw_version& fwVer, bool queryRunning=false);
     virtual bool FwResetTimeStamp();
+
+    bool FwCheckIfWeCanBurnWithFwControl(FwOperations* imageOps);
+    bool FwCheckIf8MBShiftingNeeded(FwOperations* imageOps, const ExtBurnParams& burnParams);
 
 protected:
     #define ITOC_ASCII 0x49544f43
@@ -114,12 +133,13 @@ protected:
     #define DEV_INFO "DEV_INFO"
     #define UNKNOWN_SECTION "UNKNOWN"
 
+    u_int32_t getNewImageStartAddress(Fs3Operations &imageOps, bool isBurnFailSafe);
     virtual bool FsBurnAux(FwOperations *imageOps, ExtBurnParams& burnParams);
     bool DumpFs3CRCCheck(u_int8_t sect_type, u_int32_t sect_addr, u_int32_t sect_size, u_int32_t crc_act, u_int32_t crc_exp,
                 bool ignore_crc = false, VerifyCallBack verifyCallBackFunc = (VerifyCallBack)NULL);
     bool Fs3UpdateImgCache(u_int8_t *buff, u_int32_t addr, u_int32_t size);
     virtual bool UpdateImgCache(u_int8_t *buff, u_int32_t addr, u_int32_t size);
-    virtual bool FsVerifyAux(VerifyCallBack verifyCallBackFunc, bool show_itoc, struct QueryOptions queryOptions);
+    virtual bool FsVerifyAux(VerifyCallBack verifyCallBackFunc, bool show_itoc, struct QueryOptions queryOptions, bool ignoreDToc = false);
     bool FsIntQueryAux(bool readRom = true, bool quickQuery=true);
     const char* GetSectionNameByType(u_int8_t section_type);
     bool GetImageInfoFromSection(u_int8_t *buff, u_int8_t sect_type, u_int32_t sect_size, u_int8_t check_support_only = 0);
@@ -129,6 +149,7 @@ protected:
     bool GetDevInfo(u_int8_t *buff);
     bool GetImageInfo(u_int8_t *buff);
     bool GetRomInfo(u_int8_t *buff, u_int32_t size);
+    bool GetImgSigInfo(u_int8_t *buff);
     bool DoAfterBurnJobs(const u_int32_t magic_patter[], Fs3Operations &imageOps,
             ExtBurnParams& burnParams, Flash *f,
             u_int32_t new_image_start, u_int8_t  is_curr_image_in_odd_chunks);
@@ -141,6 +162,20 @@ protected:
     bool Fs3ChangeUidsFromBase(fs3_uid_t base_uid, struct cx4fw_guids& guids);
     bool DeviceTimestampEnabled();
     bool RomCommonCheck(bool ignoreProdIdCheck, bool checkIfRomEmpty);
+    bool extractUUIDFromString(const char* uuid, std::vector<u_int32_t>& uuidData);
+
+    bool Fs3UpdatePublicKeysSection(unsigned int size, char *publicKeys,
+                               std::vector<u_int8_t>  &newSectionData);
+    bool Fs3UpdateForbiddenVersionsSection(unsigned int size, char *publicKeys,
+                                   std::vector<u_int8_t>  &newSectionData);
+
+    bool CheckAndDealWithChunkSizes(u_int32_t cntxLog2ChunkSize, u_int32_t imageCntxLog2ChunkSize);
+    bool ReBurnCurrentImage(ProgressCallBack progressFunc);
+
+    bool Fs3MemSetSignature(fs3_section_t sectType, u_int32_t size, PrintCallBack printFunc=(PrintCallBack)NULL);
+    virtual bool IsSectionExists(fs3_section_t sectType);
+
+    bool isOld4MBImage(FwOperations* imageOps);
 
     struct toc_info {
         u_int32_t entry_addr;
@@ -158,6 +193,7 @@ protected:
         u_int32_t       itocAddr;
         u_int32_t       smallestAbsAddr;
         u_int32_t       sizeOfImgData;
+        bool            runFromAny;
     };
 
     static const SectionInfo _fs3SectionsInfoArr[];
@@ -168,6 +204,9 @@ protected:
     bool _badDevDataSections; // set true if during verify one of the device data section is corrupt or mfg section missing
     u_int32_t _maxImgLog2Size;
 
+    u_int8_t        _signatureExists;
+    u_int8_t        _publicKeysExists;
+
 private:
     #define CRC_CHECK_OUTPUT  CRC_CHECK_OLD")"
     #define FS3_CRC_CHECK_OUT CRC_CHECK_OLD":0x%x)"
@@ -177,7 +216,7 @@ private:
 
 
     bool VerifyTOC(u_int32_t dtoc_addr, bool& bad_signature, VerifyCallBack verifyCallBackFunc, bool show_itoc,
-            struct QueryOptions queryOptions);
+            struct QueryOptions queryOptions, bool ignoreDToc = false);
     bool checkPreboot(u_int32_t* prebootBuff, u_int32_t size, VerifyCallBack verifyCallBackFunc);
     bool CheckTocSignature(struct cibfw_itoc_header *itoc_header, u_int32_t first_signature);
     bool BurnFs3Image(Fs3Operations &imageOps, ExtBurnParams& burnParams);
@@ -224,6 +263,12 @@ private:
     bool getLastFwSAddr(u_int32_t& lastAddr);
     bool getFirstDevDataAddr(u_int32_t& firstAddr);
     virtual bool reburnItocSection(PrintCallBack callBackFunc, bool burnFailsafe=true);
+    virtual u_int32_t getImageSize();
+    virtual void maskDevToc(vector<u_int8_t>& img);
+    virtual void maskIToCSection(u_int32_t itocType, vector<u_int8_t>& img);
+    bool FwCalcSHA(SHATYPE shaType, vector<u_int8_t>& sha256);
+
+    bool CheckPublicKeysFile(char* fname, fs3_section_t& sectionType);
 
     Tlv_Status_t GetTsObj(TimeStampIFC** tsObj);
 

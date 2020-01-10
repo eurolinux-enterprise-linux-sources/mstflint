@@ -30,24 +30,37 @@
 # SOFTWARE.
 #--
 
-AM_CPPFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common
+PYTHON_WRAPPER_SCRIPT = ../common/python_wrapper
 
-LDADD= ../mtcr_ul/libmtcr_ul.a -ldl
+AM_CPPFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd
+AM_CFLAGS= -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/mvpd
+
+LDADD= $(top_srcdir)/${MTCR_CONF_DIR}/libmtcr_ul.a ${LDL}
 
 bin_PROGRAMS = mstmread \
 					mstmwrite \
 					mstmcra \
 					mstmtserver \
 					mstvpd
-
+					
+bin_SCRIPTS = mstfwreset
 
 mstmread_SOURCES = mread.c
 
 mstmwrite_SOURCES = mwrite.c
 
 mstvpd_SOURCES = vpd.c
+mstvpd_LDADD = $(top_srcdir)/mvpd/libmvpd.a $(top_srcdir)/${MTCR_CONF_DIR}/libmtcr_ul.a ${LDL}
 
 mstmcra_SOURCES  = mcra.c
 
 mstmtserver_SOURCES = mtserver.c tcp.c tcp.h
 mstmtserver_CFLAGS = -DMST_UL
+
+SUBDIRS = mlxfwresetlib
+MSTFWRESET_PYTHON_WRAPPER=mstfwreset
+${MSTFWRESET_PYTHON_WRAPPER}: $(PYTHON_WRAPPER_SCRIPT)
+	cp $(PYTHON_WRAPPER_SCRIPT) $@
+mstfwresetlibdir=$(libdir)/mstflint/python_tools/$(MSTFWRESET_PYTHON_WRAPPER)
+mstfwresetlib_DATA = $(MSTFWRESET_PYTHON_WRAPPER).py
+

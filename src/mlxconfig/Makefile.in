@@ -46,6 +46,7 @@
 # SOFTWARE.
 #--
 
+
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -114,36 +115,54 @@ bin_PROGRAMS = mstconfig$(EXEEXT)
 @DISABLE_XML2_TRUE@am__append_1 = -DDISABLE_XML2
 @DISABLE_XML2_FALSE@am__append_2 = -I$(XML2_INC_DIR)
 @DISABLE_XML2_FALSE@am__append_3 = -lxml2
+@DISABLE_XML2_FALSE@am__append_4 = -lxml2
+@ENABLE_INBAND_TRUE@am__append_5 = $(top_srcdir)/mad_ifc/libmad_ifc.a
+@ENABLE_INBAND_TRUE@am__append_6 = $(top_srcdir)/mad_ifc/libmad_ifc.a
+@ENABLE_OPENSSL_TRUE@am__append_7 = $(MLXSIGN_LIB) -lcrypto
+@ENABLE_OPENSSL_TRUE@am__append_8 = $(MLXSIGN_LIB) -lcrypto
+@ENABLE_OPENSSL_FALSE@am__append_9 = -DNO_OPEN_SSL
 subdir = mlxconfig
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)"
-PROGRAMS = $(bin_PROGRAMS)
-am_mstconfig_OBJECTS = mlxcfg_parser.$(OBJEXT) mlxcfg_ui.$(OBJEXT) \
-	mlxcfg_utils.$(OBJEXT) mlxcfg_db_manager.$(OBJEXT) \
-	mlxcfg_param.$(OBJEXT) mlxcfg_tlv.$(OBJEXT) \
-	mlxcfg_commander.$(OBJEXT) mlxcfg_generic_commander.$(OBJEXT) \
-	mlxcfg_param_lib.$(OBJEXT) mlxcfg_4thgen_commander.$(OBJEXT)
-mstconfig_OBJECTS = $(am_mstconfig_OBJECTS)
+LTLIBRARIES = $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-mstconfig_DEPENDENCIES = $(UTILS_LIB) \
+@ENABLE_OPENSSL_TRUE@am__DEPENDENCIES_2 = $(MLXSIGN_LIB)
+libmlxcfg_a_DEPENDENCIES = $(UTILS_LIB) \
 	$(EXT_LIB_DIR)/sqlite/libsqlite3.a \
 	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
 	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
 	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
-	$(am__DEPENDENCIES_1)
+	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__append_6) $(am__DEPENDENCIES_2)
+am_libmlxcfg_a_OBJECTS = mlxcfg_utils.lo mlxcfg_expression.lo \
+	mlxcfg_db_items.lo mlxcfg_db_manager.lo mlxcfg_param.lo \
+	mlxcfg_tlv.lo mlxcfg_commander.lo mlxcfg_generic_commander.lo \
+	mlxcfg_param_lib.lo mlxcfg_4thgen_commander.lo
+libmlxcfg_a_OBJECTS = $(am_libmlxcfg_a_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am__installdirs = "$(DESTDIR)$(bindir)"
+PROGRAMS = $(bin_PROGRAMS)
+am_mstconfig_OBJECTS = mlxcfg_parser.$(OBJEXT) mlxcfg_ui.$(OBJEXT)
+mstconfig_OBJECTS = $(am_mstconfig_OBJECTS)
+mstconfig_DEPENDENCIES = libmlxcfg.a $(UTILS_LIB) \
+	$(EXT_LIB_DIR)/sqlite/libsqlite3.a \
+	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
+	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
+	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
+	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__append_5) $(am__DEPENDENCIES_2)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -196,8 +215,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(mstconfig_SOURCES)
-DIST_SOURCES = $(mstconfig_SOURCES)
+SOURCES = $(libmlxcfg_a_SOURCES) $(mstconfig_SOURCES)
+DIST_SOURCES = $(libmlxcfg_a_SOURCES) $(mstconfig_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -276,8 +295,10 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -294,6 +315,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
+ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -304,15 +326,20 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LDL = @LDL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
+MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
+MLXFWUPDATE = @MLXFWUPDATE@
+MTCR_CONF_DIR = @MTCR_CONF_DIR@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -333,7 +360,9 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
+TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
@@ -358,6 +387,7 @@ build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_en_inband = @default_en_inband@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
@@ -392,7 +422,7 @@ top_srcdir = @top_srcdir@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
 USER_DIR = $(top_srcdir)
-MTCR_DIR = $(top_srcdir)/mtcr_ul
+MTCR_DIR = $(top_srcdir)/${MTCR_CONF_DIR}
 COMMON_DIR = $(top_srcdir)/common
 LAYOUTS_DIR = $(top_srcdir)/tools_layouts
 UTILS_DIR = $(top_srcdir)/mft_utils
@@ -401,28 +431,44 @@ LAYOUTS_LIB = $(LAYOUTS_DIR)/libtools_layouts.a
 UTILS_LIB = $(USER_DIR)/mft_utils/libmftutils.a
 CMDIF_DIR = $(USER_DIR)/cmdif
 EXT_LIB_DIR = $(USER_DIR)/ext_libs
+MLXSIGN_DIR = $(USER_DIR)/mlxsign_lib
+MLXSIGN_LIB = $(MLXSIGN_DIR)/libmlxsign.a
+COMPS_MGR_DIR = $(USER_DIR)/fw_comps_mgr
 SUBDIRS = mlxconfig_dbs
 AM_CPPFLAGS = -I. -I$(USER_DIR) -I$(top_srcdir)/include/mtcr_ul \
-	-I$(MTCR_DIR) -I$(COMMON_DIR) $(WIN64_INC) -I $(LAYOUTS_DIR) \
-	-I $(UTILS_DIR) -I$(DEV_MGT_DIR) -I$(CMDIF_DIR) \
-	$(am__append_2)
+	-I$(MTCR_DIR) -I$(COMMON_DIR) $(WIN64_INC) -I$(LAYOUTS_DIR) \
+	-I$(UTILS_DIR) -I$(DEV_MGT_DIR) -I$(CMDIF_DIR) \
+	-I$(EXT_LIB_DIR)/muparser $(COMPILER_FPIC) $(am__append_2)
 
 #get mst device examples and tool name from makefile
 AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe -Wno-deprecated-declarations \
-	-DDATA_PATH=\"$(pkgdatadir)\" $(am__append_1) \
-	-DMLXCFG_NAME=\"mstconfig\" -DMST_DEV_EXAMPLE=\"04:00.0\" \
-	-DMST_DEV_EXAMPLE2=\"05:00.0\"
-mstconfig_LDADD = $(UTILS_LIB) $(EXT_LIB_DIR)/sqlite/libsqlite3.a \
+	$(COMPILER_FPIC) -DDATA_PATH=\"$(pkgdatadir)\" $(am__append_1) \
+	$(am__append_9) -DMLXCFG_NAME=\"mstconfig\" \
+	-DMST_DEV_EXAMPLE=\"04:00.0\" -DMST_DEV_EXAMPLE2=\"05:00.0\"
+noinst_LTLIBRARIES = libmlxcfg.a
+libmlxcfg_a_SOURCES = mlxcfg_status.h mlxcfg_utils.h mlxcfg_utils.cpp mlxcfg_view.h\
+        mlxcfg_expression.h mlxcfg_expression.cpp\
+mlxcfg_db_items.h mlxcfg_db_items.cpp\
+        mlxcfg_db_manager.h mlxcfg_db_manager.cpp mlxcfg_param.h mlxcfg_param.cpp mlxcfg_tlv.h mlxcfg_tlv.cpp\
+        mlxcfg_commander.h mlxcfg_commander.cpp mlxcfg_generic_commander.h mlxcfg_generic_commander.cpp\
+        mlxcfg_param_lib.h mlxcfg_param_lib.cpp mlxcfg_4thgen_commander.h mlxcfg_4thgen_commander.cpp
+
+libmlxcfg_a_LIBADD = $(UTILS_LIB) $(EXT_LIB_DIR)/sqlite/libsqlite3.a \
 	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
 	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
 	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
-	$(MLNXOS_PPC_LIBS) $(LIBSTD_CPP) -ldl $(am__append_3)
-mstconfig_SOURCES = mlxcfg_ui.h mlxcfg_parser.cpp mlxcfg_ui.cpp\
-			mlxcfg_status.h mlxcfg_utils.h mlxcfg_utils.cpp mlxcfg_view.h\
-			 mlxcfg_db_manager.h mlxcfg_db_manager.cpp mlxcfg_param.h mlxcfg_param.cpp mlxcfg_tlv.h mlxcfg_tlv.cpp\
-			 mlxcfg_commander.h mlxcfg_commander.cpp mlxcfg_generic_commander.h mlxcfg_generic_commander.cpp\
-			 mlxcfg_param_lib.h mlxcfg_param_lib.cpp mlxcfg_4thgen_commander.h mlxcfg_4thgen_commander.cpp
-
+	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(MLNXOS_PPC_LIBS) \
+	$(LIBSTD_CPP) ${LDL} $(am__append_4) $(am__append_6) \
+	$(am__append_8)
+mstconfig_LDADD = libmlxcfg.a $(UTILS_LIB) \
+	$(EXT_LIB_DIR)/sqlite/libsqlite3.a \
+	$(EXT_LIB_DIR)/muparser/libmuparser.a $(CMDIF_DIR)/libcmdif.a \
+	../reg_access/libreg_access.a $(LAYOUTS_LIB) \
+	$(MTCR_DIR)/libmtcr_ul.a $(DEV_MGT_DIR)/libdev_mgt.a \
+	$(COMPS_MGR_DIR)/libfw_comps_mgr.a $(MLNXOS_PPC_LIBS) \
+	$(LIBSTD_CPP) ${LDL} $(am__append_3) $(am__append_5) \
+	$(am__append_7)
+mstconfig_SOURCES = mlxcfg_ui.h mlxcfg_parser.cpp mlxcfg_ui.cpp
 all: all-recursive
 
 .SUFFIXES:
@@ -457,6 +503,20 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
+
+clean-noinstLTLIBRARIES:
+	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
+	@list='$(noinst_LTLIBRARIES)'; \
+	locs=`for p in $$list; do echo $$p; done | \
+	      sed 's|^[^/]*$$|.|; s|/[^/]*$$||; s|$$|/so_locations|' | \
+	      sort -u`; \
+	test -z "$$locs" || { \
+	  echo rm -f $${locs}; \
+	  rm -f $${locs}; \
+	}
+
+libmlxcfg.a: $(libmlxcfg_a_OBJECTS) $(libmlxcfg_a_DEPENDENCIES) $(EXTRA_libmlxcfg_a_DEPENDENCIES) 
+	$(AM_V_CXXLD)$(CXXLINK)  $(libmlxcfg_a_OBJECTS) $(libmlxcfg_a_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	@list='$(bin_PROGRAMS)'; test -n "$(bindir)" || list=; \
@@ -517,16 +577,18 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_4thgen_commander.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_commander.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_db_manager.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_generic_commander.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_param.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_param_lib.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_4thgen_commander.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_commander.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_db_items.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_db_manager.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_expression.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_generic_commander.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_param.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_param_lib.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_parser.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_tlv.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_tlv.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_ui.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_utils.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mlxcfg_utils.Plo@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -711,7 +773,7 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-recursive
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS)
 installdirs: installdirs-recursive
 installdirs-am:
 	for dir in "$(DESTDIR)$(bindir)"; do \
@@ -749,7 +811,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-binPROGRAMS clean-generic clean-libtool mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-libtool \
+	clean-noinstLTLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -rf ./$(DEPDIR)
@@ -821,18 +884,18 @@ uninstall-am: uninstall-binPROGRAMS
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am check \
 	check-am clean clean-binPROGRAMS clean-generic clean-libtool \
-	cscopelist-am ctags ctags-am distclean distclean-compile \
-	distclean-generic distclean-libtool distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am uninstall-binPROGRAMS
+	clean-noinstLTLIBRARIES cscopelist-am ctags ctags-am distclean \
+	distclean-compile distclean-generic distclean-libtool \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-binPROGRAMS install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

@@ -31,7 +31,7 @@
 #--
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
-MTCR_DIR = $(top_srcdir)/mtcr_ul
+MTCR_DIR = $(top_srcdir)/${MTCR_CONF_DIR}
 MTCR_INC_DIR = $(top_srcdir)/include/mtcr_ul
 MFLASH_DIR = $(top_srcdir)/mflash
 MINIXZ_DIR = $(top_srcdir)/ext_libs/minixz
@@ -45,12 +45,24 @@ AM_CPPFLAGS = -I$(srcdir) -I$(MTCR_INC_DIR) -I$(MFLASH_DIR) -I$(top_srcdir)/ext_
 
 MLXFWOPS_VERSION = 1
 
-AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe -DNO_MFA_SUPPORT
+AM_CXXFLAGS = -Wall -W -g -MP -MD -pipe $(COMPILER_FPIC)
+
+if ENABLE_FWMGR
+AM_CPPFLAGS += -I$(top_srcdir)/libmfa
+else
+AM_CXXFLAGS += -DNO_MFA_SUPPORT
+endif
 
 if ENABLE_OPENSSL
 else
 AM_CXXFLAGS += -DNO_OPEN_SSL
 endif
+
+if ENABLE_CS
+else
+AM_CXXFLAGS += -DNO_CS_CMD
+endif
+
 
 noinst_LIBRARIES = libmlxfwops.a
 
@@ -61,6 +73,8 @@ libmlxfwops_a_SOURCES = flint_base.cpp \
                fs3_ops.cpp fs3_ops.h \
                fs4_ops.cpp fs4_ops.h \
                mlxfwops.cpp mlxfwops.h \
-               mlxfwops_com.h mlxfwops.h fw_ops.h flint_base.h flint_io.h\
+               fsctrl_ops.cpp fsctrl_ops.h \
+               fs_checks.h fs_checks.cpp \
+               mlxfwops_com.h fw_ops.h flint_base.h flint_io.h \
                aux_tlv_ops.h aux_tlv_ops.cpp
 

@@ -114,7 +114,8 @@ subdir = tools_layouts
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_compile_flag.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -126,7 +127,7 @@ libtools_layouts_a_LIBADD =
 am_libtools_layouts_a_OBJECTS = adb_to_c_utils.lo cibfw_layouts.lo \
 	register_access_open_layouts.lo tools_open_layouts.lo \
 	register_access_sib_layouts.lo cx4fw_layouts.lo \
-	cx5fw_layouts.lo connectib_layouts.lo
+	cx5fw_layouts.lo icmd_layouts.lo reg_access_hca_layouts.lo
 libtools_layouts_a_OBJECTS = $(am_libtools_layouts_a_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -204,8 +205,10 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+COMPILER_FPIC = @COMPILER_FPIC@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_INC_DIR = @CURL_INC_DIR@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -222,6 +225,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 ENABLE_DC = @ENABLE_DC@
+ENABLE_FWMGR = @ENABLE_FWMGR@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -232,15 +236,20 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LDL = @LDL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+MAD_IFC = @MAD_IFC@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
+MFT_VERSION_STR = @MFT_VERSION_STR@
 MKDIR_P = @MKDIR_P@
+MLXFWUPDATE = @MLXFWUPDATE@
+MTCR_CONF_DIR = @MTCR_CONF_DIR@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -261,7 +270,9 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TOOLS_BUILD_TIME = @TOOLS_BUILD_TIME@
 TOOLS_CRYPTO = @TOOLS_CRYPTO@
+TOOLS_GIT_SHA = @TOOLS_GIT_SHA@
 VERSION = @VERSION@
 XML2_INC_DIR = @XML2_INC_DIR@
 abs_builddir = @abs_builddir@
@@ -286,6 +297,7 @@ build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_en_inband = @default_en_inband@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
@@ -319,7 +331,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
-AM_CPPFLAGS = -I$(top_srcdir)/mtcr_ul -I$(top_srcdir)/common
+AM_CPPFLAGS = -I$(top_srcdir)/${MTCR_CONFIG_DIR} -I$(top_srcdir)/common
 AM_CFLAGS = -Wall -W -g -MP -MD -pipe $(COMPILER_FPIC)
 noinst_LTLIBRARIES = libtools_layouts.a
 libtools_layouts_a_SOURCES = adb_to_c_utils.c adb_to_c_utils.h \
@@ -329,7 +341,8 @@ libtools_layouts_a_SOURCES = adb_to_c_utils.c adb_to_c_utils.h \
 				register_access_sib_layouts.h register_access_sib_layouts.c \
 				cx4fw_layouts.c cx4fw_layouts.h\
 				cx5fw_layouts.c cx5fw_layouts.h\
-				connectib_layouts.c connectib_layouts.h
+				icmd_layouts.c icmd_layouts.h\
+                reg_access_hca_layouts.c reg_access_hca_layouts.h
 
 all: all-am
 
@@ -388,9 +401,10 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/adb_to_c_utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cibfw_layouts.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectib_layouts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cx4fw_layouts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cx5fw_layouts.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icmd_layouts.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/reg_access_hca_layouts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/register_access_open_layouts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/register_access_sib_layouts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tools_open_layouts.Plo@am__quote@

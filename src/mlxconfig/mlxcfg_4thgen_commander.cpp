@@ -90,8 +90,15 @@ string FourthGenCommander::param2str[Mcp_Last]= {"SRIOV_EN", "NUM_OF_VFS",
          "INITIAL_ALPHA_VALUE_P2", "MIN_TIME_BETWEEN_CNPS_P2", "CNP_DSCP_P2", "CNP_802P_PRIO_P2",
          "BOOT_OPTION_ROM_EN_P1", "BOOT_VLAN_EN_P1", "BOOT_RETRY_CNT_P1", "LEGACY_BOOT_PROTOCOL_P1", "BOOT_VLAN_P1",
          "BOOT_OPTION_ROM_EN_P2", "BOOT_VLAN_EN_P2", "BOOT_RETRY_CNT_P2", "LEGACY_BOOT_PROTOCOL_P2", "BOOT_VLAN_P2",
-         "PORT_OWNER", "ALLOW_RD_COUNTERS", "IP_VER", "IP_VER_P1", "IP_VER_P2",
+         "PORT_OWNER", "ALLOW_RD_COUNTERS", "IP_VER", "IP_VER_P1", "IP_VER_P2", "CQ_TIMESTAMP", "STEER_FORCE_VLAN",
           };
+
+void FourthGenCommander::freeCfgList()
+{
+    for(map<mlxCfgType, CfgParams*>::iterator it = _cfgList.begin(); it != _cfgList.end(); it++) {
+        delete it->second;
+    }
+}
 
 FourthGenCommander::FourthGenCommander(mfile* mf, string dev) : Commander(mf), _dev(dev),
         _allInfo() {
@@ -180,7 +187,14 @@ FourthGenCommander::FourthGenCommander(mfile* mf, string dev) : Commander(mf), _
     _param2TypeMap[Mcp_Boot_Settings_Ext_IP_Ver_P1] = Mct_Boot_Settings_Extras_4thGen_P1;
     _param2TypeMap[Mcp_Boot_Settings_Ext_IP_Ver_P2] = Mct_Boot_Settings_Extras_4thGen_P2;
 
+    // CX3 Global Conf
+    _cfgList[Mct_CX3_Global_Conf] = new CX3GlobalConfParams();
+    _param2TypeMap[Mcp_CQ_Timestamp] = Mct_CX3_Global_Conf;
+    _param2TypeMap[Mcp_Steer_ForceVlan] = Mct_CX3_Global_Conf;
+
+
     if (openComChk()) {
+        freeCfgList();
         throw MlxcfgException("Failed to open device: %s. %s",
                 _dev.c_str(), err());
     }
@@ -188,9 +202,7 @@ FourthGenCommander::FourthGenCommander(mfile* mf, string dev) : Commander(mf), _
 
 FourthGenCommander::~FourthGenCommander()
 {
-    for(map<mlxCfgType, CfgParams*>::iterator it = _cfgList.begin(); it != _cfgList.end(); it++) {
-        delete it->second;
-    }
+    freeCfgList();
     return;
 }
 
@@ -204,7 +216,7 @@ void FourthGenCommander::clearSemaphore() {
 int FourthGenCommander::supportsToolsHCR()
 {
     // we also update the support vector
-    u_int32_t devId;
+    u_int32_t devId = 0x0;
     u_int32_t type = 0;
     int rc;
 
@@ -442,17 +454,28 @@ int FourthGenCommander::setCfgAux(mlxCfgParam cfgParam, u_int32_t val)
 
 void FourthGenCommander::queryParamViews(std::vector<ParamView>& paramsToQuery, QueryType qt)
 {
+    VECTOR_ITERATOR(ParamView, paramsToQuery, param) {
+        bool found = false;
+        for (int i = (int)Mcp_Sriov_En ; i < (int)Mcp_Last ; i++) {
+            if (param->mlxconfigName == param2str[i]) {
+                found = true;
+            }
+        }
+        if (!found) {
+            throw MlxcfgException("Unknown Parameter: %s",
+                                   param->mlxconfigName.c_str());
+        }
+    }
     queryAux(paramsToQuery, qt, true);
     return;
 }
 
 void FourthGenCommander::setCfg(std::vector<ParamView>& params, bool force)
 {
-    mlxCfgParam failedParam;
+    mlxCfgParam failedParam = Mcp_Last;
     vector<cfgInfo> infoVec;
 
     VECTOR_ITERATOR(ParamView, params, pv) {
-        cfgInfo info;
         int i;
         for (i = (int)Mcp_Sriov_En ; i < (int)Mcp_Last ; i++) {
             if (pv->mlxconfigName == param2str[i]) {
@@ -466,7 +489,7 @@ void FourthGenCommander::setCfg(std::vector<ParamView>& params, bool force)
 
     int rc = setCfgAux(infoVec, failedParam);
     if(rc) {
-        if(rc == MCE_UNSUPPORTED_CFG) {
+        if(rc == MCE_UNSUPPORTED_CFG && failedParam != Mcp_Last) {
             throw MlxcfgException("Unsupported Configuration: %s",
                     param2str[failedParam].c_str());
         } else {
@@ -1027,6 +1050,22 @@ MlxCfgInfo MlxCfgAllInfo::createBootSettingsExt()
     return MlxCfgInfo("Boot Settings Extras", "These parameters are relevant only for servers using legacy BIOS PXE boot (flexboot).", params);
 }
 
+MlxCfgInfo MlxCfgAllInfo::createCX3GlobalConf()
+{
+    map<string, u_int32_t> paramMap;
+    map<mlxCfgParam, MlxCfgParamParser> params;
+
+    paramMap["True"] = 1;
+    paramMap["False"] = 0;
+    params[Mcp_CQ_Timestamp] = MlxCfgParamParser(Mcp_CQ_Timestamp, "CQ_TIMESTAMP",
+                                                     "When set, IEE1588 (PTP) HW timestamping capability is"
+                                                     " reported to the device driver.", paramMap);
+    params[Mcp_Steer_ForceVlan] = MlxCfgParamParser(Mcp_Steer_ForceVlan, "STEER_FORCE_VLAN",
+                                                  "Force VLAN steering configuration", paramMap);
+
+    return MlxCfgInfo("CX3 Global", "", params);
+}
+
 bool sortCfg(MlxCfgInfo a, MlxCfgInfo b)
 {
     return a.getName() < b.getName();
@@ -1049,6 +1088,7 @@ MlxCfgAllInfo::MlxCfgAllInfo()
     _allInfo.push_back(createVPISettings());
     _allInfo.push_back(createWakeOnLAN());
     _allInfo.push_back(createBootSettingsExt());
+    _allInfo.push_back(createCX3GlobalConf());
     std::sort(_allInfo.begin(), _allInfo.end(), sortCfg);
 }
 

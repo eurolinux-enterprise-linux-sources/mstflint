@@ -67,7 +67,7 @@ using namespace std;
     "SELECT * FROM params WHERE mlxconfig_name='%s'"
 
 MlxcfgDBManager::MlxcfgDBManager(string dbName) : _dbName(dbName),
-        _db(NULL), _callBackErr(""), _isAllFetched(false),
+        _db(NULL), _supportedVersion(0x0), _callBackErr(""), _isAllFetched(false),
         _paramSqlResult(NULL) {
     openDB();
 }
@@ -85,7 +85,28 @@ MlxcfgDBManager::~MlxcfgDBManager() {
     sqlite3_close(_db);
 }
 
-void MlxcfgDBManager::openDB() {
+void MlxcfgDBManager::checkDBVersion()
+{
+    int rc = 0x0;
+    sqlite3_stmt *stmt = NULL;
+    unsigned int dbVersion = 0x0;
+
+    sqlite3_prepare_v2(_db, "PRAGMA user_version", -1, &stmt, NULL);
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (strcmp(sqlite3_column_name(stmt, 0), "user_version") == 0) {
+            dbVersion = (unsigned int)sqlite3_column_int(stmt, 0);
+            break;
+        }
+    }
+
+    if (dbVersion != _supportedVersion) {
+        throw MlxcfgException("Unsupported database version");
+    }
+}
+
+void MlxcfgDBManager::openDB()
+{
 
     if (!isDBFileExists(_dbName)) {
         throw MlxcfgException("Database file %s does not exist", _dbName.c_str());
@@ -97,6 +118,8 @@ void MlxcfgDBManager::openDB() {
         _db = NULL;
         throw MlxcfgException("SQL Error when opening DB: %s", e.c_str());
     }
+
+    checkDBVersion();
 
     return;
 }
@@ -133,7 +156,33 @@ int MlxcfgDBManager::selectTLVCallBack(void *object, int argc, char **argv, char
         dbManager->_callBackErr = e._err;
         return SQLITE_ABORT;
     }
-    //printf("-D- Added new TLV = %s\n", tlv->_name.c_str());
+
+    return 0;
+}
+
+int MlxcfgDBManager::selectAndCreateNewTLVCallBack(void *object, int argc, char **argv, char **azColName) {
+
+    TLVConf* *tlv = reinterpret_cast<TLVConf**>(object);
+
+    try {
+        *tlv = new TLVConf(argc, argv, azColName);
+    } catch (MlxcfgException& e) {
+        return SQLITE_ABORT;
+    }
+
+    return 0;
+}
+
+int MlxcfgDBManager::selectAndCreateParamCallBack(void *object, int argc, char **argv,
+        char **azColName){
+    TLVConf* tlv = reinterpret_cast<TLVConf*>(object);
+
+    try {
+        Param* param = new Param(argc, argv, azColName);
+        tlv->_params.push_back(param);
+    } catch (MlxcfgException& e) {
+        return SQLITE_ABORT;
+    }
 
     return 0;
 }
@@ -201,7 +250,7 @@ void MlxcfgDBManager::getAllTLVs() {
     _isAllFetched = true;
 }
 
-TLVConf* MlxcfgDBManager::getTLVByNameAux(std::string n, u_int8_t port) {
+TLVConf* MlxcfgDBManager::getTLVByNameAux(string n, u_int8_t port) {
     VECTOR_ITERATOR(TLVConf*, fetchedTLVs, it) {
         TLVConf* t = *it;
         if (t->_name == n && t->_port == port) {
@@ -259,6 +308,23 @@ TLVConf* MlxcfgDBManager::fetchTLVByIndexAndClass(u_int32_t id, TLVClass c)
     }
 
     return t;
+}
+
+TLVConf* MlxcfgDBManager::getAndCreateTLVByName(string n, u_int8_t port) {
+    TLVConf* tlv = NULL;
+    const char* nc = n.c_str();
+
+    execSQL(selectAndCreateNewTLVCallBack, &tlv, SQL_SELECT_TLV_BY_NAME_AND_PORT,
+            nc, port);
+    if(!tlv) {
+        throw MlxcfgException("The TLV configuration %s was not found", nc);
+    }
+
+    //fetch the parameters
+    execSQL(selectAndCreateParamCallBack, tlv,
+            SQL_SELECT_PARAMS_BY_TLV_NAME_AND_PORT, nc, port);
+
+    return tlv;
 }
 
 TLVConf* MlxcfgDBManager::getTLVByName(string n, u_int8_t port) {

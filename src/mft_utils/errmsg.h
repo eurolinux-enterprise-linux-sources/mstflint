@@ -36,7 +36,8 @@
 
 #include <map>
 #include <string>
-#include <cstdarg>
+
+#include <stdarg.h>
 
 /**
  *  ErrMsg Class Provides API for returning both error codes and error messages to the user app.
@@ -47,7 +48,7 @@ public:
     ErrMsg();
     ErrMsg(std::map<int, std::string>& errCodeMap);
 
-    ~ErrMsg()                { err_clear();}
+    virtual ~ErrMsg()                { err_clear();}
 
     const char* err() const  { return _err;}
     void updateErrCodes(std::map<int, std::string>& errCodeMap) {_errMap = errCodeMap; return;}

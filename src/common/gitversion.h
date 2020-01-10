@@ -1,1 +1,1 @@
-#define TOOLS_GIT_SHA "8f44289"
+#define TOOLS_GIT_SHA "59e7f1c"
