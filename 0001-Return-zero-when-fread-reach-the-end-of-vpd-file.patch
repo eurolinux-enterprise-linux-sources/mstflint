@@ -1,0 +1,33 @@
+From 1a097ee9a70a92dd8e81618e42ee3795e2dad004 Mon Sep 17 00:00:00 2001
+From: Honggang Li <honli@redhat.com>
+Date: Wed, 6 Dec 2017 23:59:43 -0500
+Subject: [PATCH] Return zero when fread reach the end of vpd file
+
+Fixes: 4201e56ec8e8 (Title: use mvpd in mstvpd)
+Signed-off-by: Honggang Li <honli@redhat.com>
+---
+ mtcr_ul/mtcr_ul_com.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/mtcr_ul/mtcr_ul_com.c b/mtcr_ul/mtcr_ul_com.c
+index ddafd0a..9f328b5 100644
+--- a/mtcr_ul/mtcr_ul_com.c
++++ b/mtcr_ul/mtcr_ul_com.c
+@@ -2575,9 +2575,11 @@ int mvpd_read4_ul_int(mfile *mf, unsigned int offset, u_int8_t value[4]){
+         return errno;
+     }
+     if (fread(value, 1, 4, f) < 1) {
+-        //fprintf(stderr, "Failed to read from (%s): %s\n", proc_dev, strerror(errno));
+-        fclose(f);
+-        return errno;
++        if (!feof(f)) {
++            //fprintf(stderr, "Failed to read from (%s): %s\n", proc_dev, strerror(errno));
++            fclose(f);
++            return errno;
++        }
+     }
+     fclose(f);
+     return 0;
+-- 
+1.8.3.1
+

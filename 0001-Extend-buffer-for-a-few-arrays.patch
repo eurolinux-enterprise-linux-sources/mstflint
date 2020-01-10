@@ -1,0 +1,47 @@
+From b947fc631d499fa6e041b6c460320bcd253f4671 Mon Sep 17 00:00:00 2001
+From: Honggang Li <honli@redhat.com>
+Date: Wed, 22 Feb 2017 01:42:25 -0500
+Subject: [PATCH] Extend buffer for a few arrays
+
+Signed-off-by: Honggang Li <honli@redhat.com>
+---
+ mtcr_ul/mtcr_ul_com.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/mtcr_ul/mtcr_ul_com.c b/mtcr_ul/mtcr_ul_com.c
+index 50a663f..1335b43 100644
+--- a/mtcr_ul/mtcr_ul_com.c
++++ b/mtcr_ul/mtcr_ul_com.c
+@@ -1353,7 +1353,7 @@ int mdevices_v_ul(char *buf, int len, int mask, int verbosity)
+     }
+ 
+     char inbuf[64];
+-    char fname[64];
++    char fname[300];
+ 
+     d = opendir("/sys/bus/pci/devices");
+     if (d == NULL) {
+@@ -1369,7 +1369,7 @@ int mdevices_v_ul(char *buf, int len, int mask, int verbosity)
+             continue;
+         } else if (sz > 4 && strcmp(dir->d_name + sz - 4, "00.0") && !verbosity) {
+             // Skip virtual functions
+-            char physfn[64];
++            char physfn[300];
+             DIR* physfndir;
+             sprintf(physfn, "/sys/bus/pci/devices/%s/physfn", dir->d_name);
+             if ((physfndir = opendir(physfn)) != NULL) {
+@@ -1993,9 +1993,9 @@ int mclose_ul(mfile *mf)
+     return 0;
+ }
+ 
+-#define IBDR_MAX_NAME_SIZE 128
++#define IBDR_MAX_NAME_SIZE 300
+ #define BDF_NAME_SIZE 12
+-#define DEV_DIR_MAX_SIZE 128
++#define DEV_DIR_MAX_SIZE 300
+ static
+ int get_inband_dev_from_pci(char* inband_dev, char* pci_dev)
+ {
+-- 
+2.7.4
+
