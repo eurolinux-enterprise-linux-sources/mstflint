@@ -31,13 +31,11 @@
 #--
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
-INCLUDES = -I. -I$(srcdir)/../crd_lib -I$(top_srcdir)/include/mtcr_ul 
-
-AM_CFLAGS = -MD -pipe -g -Wall -W 
+INCLUDES = -I$(top_srcdir) -I$(srcdir)/../crd_lib -I$(top_srcdir)/include/mtcr_ul
+AM_CFLAGS = -MD -pipe -g -Wall -W
 
 bin_PROGRAMS = mstregdump
 
 mstregdump_SOURCES = mstdump.c
-
-mstregdump_LDADD = ../crd_lib/libcrdump.la ../../dev_mgt/libdev_mgt.la  -lm
+mstregdump_LDADD = ../crd_lib/libcrdump.a ../../dev_mgt/libdev_mgt.a ../../mtcr_ul/libmtcr_ul.a  -lm -ldl
 

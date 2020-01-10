@@ -1,25 +1,25 @@
 #--
-# Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
-# 
+# Copyright (c) 2004-2010 Mellanox Technologies LTD. All rights reserved.
+#
 # This software is available to you under a choice of one of two
 # licenses.  You may choose to be licensed under the terms of the GNU
 # General Public License (GPL) Version 2, available from the file
 # COPYING in the main directory of this source tree, or the
 # OpenIB.org BSD license below:
-# 
+#
 #     Redistribution and use in source and binary forms, with or
 #     without modification, are permitted provided that the following
 #     conditions are met:
-# 
+#
 #      - Redistributions of source code must retain the above
 #        copyright notice, this list of conditions and the following
 #        disclaimer.
-# 
+#
 #      - Redistributions in binary form must reproduce the above
 #        copyright notice, this list of conditions and the following
-#        disclaimer in the documentation and/or other materials
+#        disclaimer in the documentation and/or othint2_oem.er materials
 #        provided with the distribution.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -29,27 +29,40 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #--
-bin_PROGRAMS = 	mstflint 
 
-INCLUDES  = -I$(top_srcdir)/mflash -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/dev_mgt
+# Makefile.am -- Process this file with automake to produce Makefile.in
+MTCR_DIR    = $(top_srcdir)/mtcr_ul
+MFLASH_DIR  = $(top_srcdir)/mflash
+COMMON_DIR  = $(top_srcdir)/common
+LAYOUTS_DIR = $(top_srcdir)/tools_layouts
+MFT_UTILS_DIR = $(top_srcdir)/mft_utils
 
-mstflint_SOURCES = flint.cpp  \
-				   flint_base.cpp \
-				   flint_io.cpp \
-				   flint_ops.cpp \
-				   flint_base.h \
-				   flint_io.h \
-				   flint_ops.h \
-				   cibfw_layouts.c \
-				   cibfw_layouts.h \
-				   adb_to_c_utils.c \
-				   adb_to_c_utils.h
+INCLUDES = -I$(top_srcdir) -I$(srcdir) -I$(MTCR_DIR) -I$(MFLASH_DIR) -I$(COMMON_DIR) \
+           -I$(LAYOUTS_DIR) -I$(MFT_UTILS_DIR)
 
-mstflint_LDADD =  ../mflash/libmflash.a
+mstflint_CXXFLAGS = -Wall -W -g -MP -MD -pipe -DEXTERNAL
+bin_PROGRAMS = mstflint
 
-mstflint_LIBS = @mstflint_LIBS@
-mstflint_CXXFLAGS = -DDEV_MST_EXAMPLE1=\"03:00.0\" -DDEV_MST_EXAMPLE2=\"mlx4_0\" -DEXTERNAL
-mstflint_CXXFLAGS += @mstflint_CXXFLAGS@
+mstflint_SOURCES = flint.cpp flint.h subcommands.cpp subcommands.h\
+					flint_params.cpp flint_params.h cmd_line_parser.cpp err_msgs.h
 
-mstflintinclude_HEADERS = $(top_srcdir)/include/mtcr_ul/mtcr.h
-mstflintincludedir = @includedir@/mtcr_ul
+mstflint_LDADD =  ../mlxfwops/lib/libmlxfwops.a  \
+                  ../cmdparser/libcmdparser.a    \
+		  ../mflash/libmflash.a          \
+		  ../reg_access/libreg_access.a  \
+		  ../mtcr_ul/libmtcr_ul.a        \
+                  ../tools_layouts/libtools_layouts.a \
+		  ../mft_utils/libmftutils.a\
+		  $(LIBSTD_CPP) -ldl
+
+
+if ENABLE_DC
+mstflint_LDADD += -lz
+else
+mstflint_CXXFLAGS += -DNO_ZLIB
+endif
+
+#get mst device examples and tool name from makefile
+mstflint_CXXFLAGS+= -DFLINT_NAME=\"mstflint\" -DFLINT_DISPLAY_NAME=\"MstFlint\"
+mstflint_CXXFLAGS += -DMST_DEV_EXAMPLE1=\"03:00.0\" -DMST_DEV_EXAMPLE2=\"mlx4_0\" -DMST_DEV_EXAMPLE3=\"03:00.0\"
+

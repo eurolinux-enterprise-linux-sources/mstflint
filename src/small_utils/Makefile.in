@@ -15,6 +15,38 @@
 
 @SET_MAKE@
 
+#--
+# Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
+#
+# This software is available to you under a choice of one of two
+# licenses.  You may choose to be licensed under the terms of the GNU
+# General Public License (GPL) Version 2, available from the file
+# COPYING in the main directory of this source tree, or the
+# OpenIB.org BSD license below:
+#
+#     Redistribution and use in source and binary forms, with or
+#     without modification, are permitted provided that the following
+#     conditions are met:
+#
+#      - Redistributions of source code must retain the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer.
+#
+#      - Redistributions in binary form must reproduce the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer in the documentation and/or other materials
+#        provided with the distribution.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#--
+
 
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
@@ -52,22 +84,27 @@ PROGRAMS = $(bin_PROGRAMS)
 am_mstmcra_OBJECTS = mcra.$(OBJEXT)
 mstmcra_OBJECTS = $(am_mstmcra_OBJECTS)
 mstmcra_LDADD = $(LDADD)
+mstmcra_DEPENDENCIES = ../mtcr_ul/libmtcr_ul.a
 am_mstmread_OBJECTS = mread.$(OBJEXT)
 mstmread_OBJECTS = $(am_mstmread_OBJECTS)
 mstmread_LDADD = $(LDADD)
+mstmread_DEPENDENCIES = ../mtcr_ul/libmtcr_ul.a
 am_mstmtserver_OBJECTS = mstmtserver-mtserver.$(OBJEXT) \
 	mstmtserver-tcp.$(OBJEXT)
 mstmtserver_OBJECTS = $(am_mstmtserver_OBJECTS)
 mstmtserver_LDADD = $(LDADD)
+mstmtserver_DEPENDENCIES = ../mtcr_ul/libmtcr_ul.a
 mstmtserver_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(mstmtserver_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_mstmwrite_OBJECTS = mwrite.$(OBJEXT)
 mstmwrite_OBJECTS = $(am_mstmwrite_OBJECTS)
 mstmwrite_LDADD = $(LDADD)
+mstmwrite_DEPENDENCIES = ../mtcr_ul/libmtcr_ul.a
 am_mstvpd_OBJECTS = vpd.$(OBJEXT)
 mstvpd_OBJECTS = $(am_mstvpd_OBJECTS)
 mstvpd_LDADD = $(LDADD)
+mstvpd_DEPENDENCIES = ../mtcr_ul/libmtcr_ul.a
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -135,6 +172,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ENABLE_DC = @ENABLE_DC@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -213,8 +251,6 @@ localstatedir = @localstatedir@
 lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
-mstflint_CXXFLAGS = @mstflint_CXXFLAGS@
-mstflint_LIBS = @mstflint_LIBS@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -228,41 +264,10 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-
-#--
-# Copyright (C) Jan 2013 Mellanox Technologies Ltd. All rights reserved.
-# 
-# This software is available to you under a choice of one of two
-# licenses.  You may choose to be licensed under the terms of the GNU
-# General Public License (GPL) Version 2, available from the file
-# COPYING in the main directory of this source tree, or the
-# OpenIB.org BSD license below:
-# 
-#     Redistribution and use in source and binary forms, with or
-#     without modification, are permitted provided that the following
-#     conditions are met:
-# 
-#      - Redistributions of source code must retain the above
-#        copyright notice, this list of conditions and the following
-#        disclaimer.
-# 
-#      - Redistributions in binary form must reproduce the above
-#        copyright notice, this list of conditions and the following
-#        disclaimer in the documentation and/or other materials
-#        provided with the distribution.
-# 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#--
-INCLUDES = -I$(top_srcdir)/include/mtcr_ul
+INCLUDES = -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common
+LDADD = ../mtcr_ul/libmtcr_ul.a -ldl
 bin_SCRIPTS = hca_self_test.ofed
-mstmread_SOURCES = mread.c 
+mstmread_SOURCES = mread.c
 mstmwrite_SOURCES = mwrite.c
 mstvpd_SOURCES = vpd.c
 mstmcra_SOURCES = mcra.c

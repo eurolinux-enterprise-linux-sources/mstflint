@@ -78,13 +78,12 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-LTLIBRARIES = $(noinst_LTLIBRARIES)
-libcrdump_la_LIBADD =
-am_libcrdump_la_OBJECTS = libcrdump_la-crdump.lo
-libcrdump_la_OBJECTS = $(am_libcrdump_la_OBJECTS)
-libcrdump_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libcrdump_la_CFLAGS) \
-	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+LIBRARIES = $(noinst_LIBRARIES)
+ARFLAGS = cru
+libcrdump_a_AR = $(AR) $(ARFLAGS)
+libcrdump_a_LIBADD =
+am_libcrdump_a_OBJECTS = crdump.$(OBJEXT)
+libcrdump_a_OBJECTS = $(am_libcrdump_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
@@ -98,8 +97,8 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libcrdump_la_SOURCES)
-DIST_SOURCES = $(libcrdump_la_SOURCES)
+SOURCES = $(libcrdump_a_SOURCES)
+DIST_SOURCES = $(libcrdump_a_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -128,6 +127,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ENABLE_DC = @ENABLE_DC@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -206,8 +206,6 @@ localstatedir = @localstatedir@
 lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
-mstflint_CXXFLAGS = @mstflint_CXXFLAGS@
-mstflint_LIBS = @mstflint_LIBS@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -221,11 +219,10 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I. -I$(top_srcdir)/include/mtcr_ul
-AM_CFLAGS = -Wall -W -g -MP -MD -pipe -Wno-unused-function  $(COMPILER_FPIC) -DMTCR_EXPORT -DDATA_PATH=\"$(pkgdatadir)\"
-noinst_LTLIBRARIES = libcrdump.la
-libcrdump_la_SOURCES = crdump.c crdump.h 
-libcrdump_la_CFLAGS = $(AM_CFLAGS)
+INCLUDES = -I$(top_srcdir) -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common
+AM_CFLAGS = -Wall -W -g -MP -MD -pipe -Wno-unused-function  $(COMPILER_FPIC) -DMTCR_EXPORT -DMST_UL -DDATA_PATH=\"$(pkgdatadir)\"
+noinst_LIBRARIES = libcrdump.a
+libcrdump_a_SOURCES = crdump.c crdump.h
 all: all-am
 
 .SUFFIXES:
@@ -261,16 +258,12 @@ $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 
-clean-noinstLTLIBRARIES:
-	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
-	@list='$(noinst_LTLIBRARIES)'; for p in $$list; do \
-	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
-	  test "$$dir" != "$$p" || dir=.; \
-	  echo "rm -f \"$${dir}/so_locations\""; \
-	  rm -f "$${dir}/so_locations"; \
-	done
-libcrdump.la: $(libcrdump_la_OBJECTS) $(libcrdump_la_DEPENDENCIES) 
-	$(libcrdump_la_LINK)  $(libcrdump_la_OBJECTS) $(libcrdump_la_LIBADD) $(LIBS)
+clean-noinstLIBRARIES:
+	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
+libcrdump.a: $(libcrdump_a_OBJECTS) $(libcrdump_a_DEPENDENCIES) 
+	-rm -f libcrdump.a
+	$(libcrdump_a_AR) libcrdump.a $(libcrdump_a_OBJECTS) $(libcrdump_a_LIBADD)
+	$(RANLIB) libcrdump.a
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -278,7 +271,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcrdump_la-crdump.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/crdump.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -300,13 +293,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-libcrdump_la-crdump.lo: crdump.c
-@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcrdump_la_CFLAGS) $(CFLAGS) -MT libcrdump_la-crdump.lo -MD -MP -MF $(DEPDIR)/libcrdump_la-crdump.Tpo -c -o libcrdump_la-crdump.lo `test -f 'crdump.c' || echo '$(srcdir)/'`crdump.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/libcrdump_la-crdump.Tpo $(DEPDIR)/libcrdump_la-crdump.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='crdump.c' object='libcrdump_la-crdump.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcrdump_la_CFLAGS) $(CFLAGS) -c -o libcrdump_la-crdump.lo `test -f 'crdump.c' || echo '$(srcdir)/'`crdump.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -398,7 +384,7 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES)
+all-am: Makefile $(LIBRARIES)
 installdirs:
 install: install-am
 install-exec: install-exec-am
@@ -427,7 +413,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
+clean-am: clean-generic clean-libtool clean-noinstLIBRARIES \
 	mostlyclean-am
 
 distclean: distclean-am
@@ -499,7 +485,7 @@ uninstall-am:
 .MAKE: install-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-libtool clean-noinstLTLIBRARIES ctags distclean \
+	clean-libtool clean-noinstLIBRARIES ctags distclean \
 	distclean-compile distclean-generic distclean-libtool \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am install-dvi \

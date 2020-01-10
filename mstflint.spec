@@ -1,13 +1,13 @@
 Name:		mstflint
 Summary:	Mellanox firmware burning tool
-Version:	3.0
-Release:	0.6.g6961daa.1%{?dist}
+Version:	3.6.0
+Release:	0.1_1.8.g7d4dede%{?dist}
 License:	GPLv2+ or BSD
 Group:		Applications/System
-Source:		http://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-0.6.g6961daa.tar.gz
+Source:		http://www.openfabrics.org/downloads/%{name}/%{name}-%{version}-1.8.g7d4dede.tar.gz
 Url:		http://www.openfabrics.org
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:	libstdc++-devel, zlib-devel
+BuildRequires:	libstdc++-devel, zlib-devel, libibmad-devel
 Obsoletes:	openib-mstflint <= 1.4 openib-tvflash <= 0.9.2 tvflash <= 0.9.0
 ExcludeArch:	s390 s390x
 
@@ -29,6 +29,7 @@ make DESTDIR=%{buildroot} install
 # Remove the devel files that we don't ship
 rm -fr %{buildroot}%{_includedir}
 rm -fr %{buildroot}%{_datadir}
+rm -fr %{buildroot}%{_libdir}/*.a
 
 %clean
 rm -rf %{buildroot}
@@ -39,6 +40,10 @@ rm -rf %{buildroot}
 %_bindir/*
 
 %changelog
+* Wed Jun 18 2014 Doug Ledford <dledford@redhat.com> - 3.6.0-1.8.g7d4dede
+- Update to latest upstream release
+- Resolves: bz1059093
+
 * Fri Aug 16 2013 Doug Ledford <dledford@redhat.com> - 3.0-0.6.g6961daa.1
 - Update to newer tarball that resolves licensing issues with the last
   tarball

@@ -78,10 +78,12 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-LTLIBRARIES = $(noinst_LTLIBRARIES)
-libdev_mgt_la_LIBADD =
-am_libdev_mgt_la_OBJECTS = tools_dev_types.lo
-libdev_mgt_la_OBJECTS = $(am_libdev_mgt_la_OBJECTS)
+LIBRARIES = $(noinst_LIBRARIES)
+ARFLAGS = cru
+libdev_mgt_a_AR = $(AR) $(ARFLAGS)
+libdev_mgt_a_LIBADD =
+am_libdev_mgt_a_OBJECTS = tools_dev_types.$(OBJEXT)
+libdev_mgt_a_OBJECTS = $(am_libdev_mgt_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
@@ -95,8 +97,8 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libdev_mgt_la_SOURCES)
-DIST_SOURCES = $(libdev_mgt_la_SOURCES)
+SOURCES = $(libdev_mgt_a_SOURCES)
+DIST_SOURCES = $(libdev_mgt_a_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -125,6 +127,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ENABLE_DC = @ENABLE_DC@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -203,8 +206,6 @@ localstatedir = @localstatedir@
 lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
-mstflint_CXXFLAGS = @mstflint_CXXFLAGS@
-mstflint_LIBS = @mstflint_LIBS@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -218,15 +219,15 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I. -I../common  -I../include/mtcr_ul
+INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_srcdir)/common  -I$(top_srcdir)/include/mtcr_ul
 AM_CFLAGS = -W -Wall -g -MP -MD -Wswitch-enum $(COMPILER_FPIC) -DMTCR_EXPORT
-noinst_LTLIBRARIES = libdev_mgt.la
-libdev_mgt_la_SOURCES = \
+noinst_LIBRARIES = libdev_mgt.a
+libdev_mgt_a_SOURCES = \
 						tools_dev_types.c \
 						tools_dev_types.h \
-						../common/bit_slice.h       \
-						../common/compatibility.h   \
-						../common/tools_version.h
+						$(top_srcdir)/common/bit_slice.h       \
+						$(top_srcdir)/common/compatibility.h   \
+						$(top_srcdir)/common/tools_version.h
 
 all: all-am
 
@@ -263,16 +264,12 @@ $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 
-clean-noinstLTLIBRARIES:
-	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
-	@list='$(noinst_LTLIBRARIES)'; for p in $$list; do \
-	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
-	  test "$$dir" != "$$p" || dir=.; \
-	  echo "rm -f \"$${dir}/so_locations\""; \
-	  rm -f "$${dir}/so_locations"; \
-	done
-libdev_mgt.la: $(libdev_mgt_la_OBJECTS) $(libdev_mgt_la_DEPENDENCIES) 
-	$(LINK)  $(libdev_mgt_la_OBJECTS) $(libdev_mgt_la_LIBADD) $(LIBS)
+clean-noinstLIBRARIES:
+	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
+libdev_mgt.a: $(libdev_mgt_a_OBJECTS) $(libdev_mgt_a_DEPENDENCIES) 
+	-rm -f libdev_mgt.a
+	$(libdev_mgt_a_AR) libdev_mgt.a $(libdev_mgt_a_OBJECTS) $(libdev_mgt_a_LIBADD)
+	$(RANLIB) libdev_mgt.a
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -280,7 +277,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tools_dev_types.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tools_dev_types.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -393,7 +390,7 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES)
+all-am: Makefile $(LIBRARIES)
 installdirs:
 install: install-am
 install-exec: install-exec-am
@@ -422,7 +419,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
+clean-am: clean-generic clean-libtool clean-noinstLIBRARIES \
 	mostlyclean-am
 
 distclean: distclean-am
@@ -494,7 +491,7 @@ uninstall-am:
 .MAKE: install-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-libtool clean-noinstLTLIBRARIES ctags distclean \
+	clean-libtool clean-noinstLIBRARIES ctags distclean \
 	distclean-compile distclean-generic distclean-libtool \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am install-dvi \

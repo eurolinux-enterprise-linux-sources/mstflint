@@ -15,6 +15,37 @@
 
 @SET_MAKE@
 
+#--
+# Copyright (c) 2004-2010 Mellanox Technologies LTD. All rights reserved.
+#
+# This software is available to you under a choice of one of two
+# licenses.  You may choose to be licensed under the terms of the GNU
+# General Public License (GPL) Version 2, available from the file
+# COPYING in the main directory of this source tree, or the
+# OpenIB.org BSD license below:
+#
+#     Redistribution and use in source and binary forms, with or
+#     without modification, are permitted provided that the following
+#     conditions are met:
+#
+#      - Redistributions of source code must retain the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer.
+#
+#      - Redistributions in binary form must reproduce the above
+#        copyright notice, this list of conditions and the following
+#        disclaimer in the documentation and/or othint2_oem.er materials
+#        provided with the distribution.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#--
 
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
@@ -36,9 +67,10 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = mstflint$(EXEEXT)
+@ENABLE_DC_TRUE@am__append_1 = -lz
+@ENABLE_DC_FALSE@am__append_2 = -DNO_ZLIB
 subdir = flint
-DIST_COMMON = $(mstflintinclude_HEADERS) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in
+DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -47,15 +79,18 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(mstflintincludedir)"
+am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_mstflint_OBJECTS = mstflint-flint.$(OBJEXT) \
-	mstflint-flint_base.$(OBJEXT) mstflint-flint_io.$(OBJEXT) \
-	mstflint-flint_ops.$(OBJEXT) cibfw_layouts.$(OBJEXT) \
-	adb_to_c_utils.$(OBJEXT)
+	mstflint-subcommands.$(OBJEXT) mstflint-flint_params.$(OBJEXT) \
+	mstflint-cmd_line_parser.$(OBJEXT)
 mstflint_OBJECTS = $(am_mstflint_OBJECTS)
-mstflint_DEPENDENCIES = ../mflash/libmflash.a
+am__DEPENDENCIES_1 =
+mstflint_DEPENDENCIES = ../mlxfwops/lib/libmlxfwops.a \
+	../cmdparser/libcmdparser.a ../mflash/libmflash.a \
+	../reg_access/libreg_access.a ../mtcr_ul/libmtcr_ul.a \
+	../tools_layouts/libtools_layouts.a ../mft_utils/libmftutils.a \
+	$(am__DEPENDENCIES_1)
 mstflint_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(mstflint_CXXFLAGS) \
 	$(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -63,15 +98,6 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-CCLD = $(CC)
-LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
-	$(LDFLAGS) -o $@
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 LTCXXCOMPILE = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
@@ -81,30 +107,17 @@ CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 SOURCES = $(mstflint_SOURCES)
 DIST_SOURCES = $(mstflint_SOURCES)
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
-am__install_max = 40
-am__nobase_strip_setup = \
-  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
-am__nobase_strip = \
-  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
-am__nobase_list = $(am__nobase_strip_setup); \
-  for p in $$list; do echo "$$p $$p"; done | \
-  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
-  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
-    if (++n[$$2] == $(am__install_max)) \
-      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
-    END { for (dir in files) print dir, files[dir] }'
-am__base_list = \
-  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
-  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-HEADERS = $(mstflintinclude_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -133,6 +146,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ENABLE_DC = @ENABLE_DC@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -211,9 +225,6 @@ localstatedir = @localstatedir@
 lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
-mstflint_CXXFLAGS = -DDEV_MST_EXAMPLE1=\"03:00.0\" \
-	-DDEV_MST_EXAMPLE2=\"mlx4_0\" -DEXTERNAL @mstflint_CXXFLAGS@
-mstflint_LIBS = @mstflint_LIBS@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -227,26 +238,35 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I$(top_srcdir)/mflash -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/dev_mgt
-mstflint_SOURCES = flint.cpp  \
-				   flint_base.cpp \
-				   flint_io.cpp \
-				   flint_ops.cpp \
-				   flint_base.h \
-				   flint_io.h \
-				   flint_ops.h \
-				   cibfw_layouts.c \
-				   cibfw_layouts.h \
-				   adb_to_c_utils.c \
-				   adb_to_c_utils.h
 
-mstflint_LDADD = ../mflash/libmflash.a
-mstflintinclude_HEADERS = $(top_srcdir)/include/mtcr_ul/mtcr.h
-mstflintincludedir = @includedir@/mtcr_ul
+# Makefile.am -- Process this file with automake to produce Makefile.in
+MTCR_DIR = $(top_srcdir)/mtcr_ul
+MFLASH_DIR = $(top_srcdir)/mflash
+COMMON_DIR = $(top_srcdir)/common
+LAYOUTS_DIR = $(top_srcdir)/tools_layouts
+MFT_UTILS_DIR = $(top_srcdir)/mft_utils
+INCLUDES = -I$(top_srcdir) -I$(srcdir) -I$(MTCR_DIR) -I$(MFLASH_DIR) -I$(COMMON_DIR) \
+           -I$(LAYOUTS_DIR) -I$(MFT_UTILS_DIR)
+
+
+#get mst device examples and tool name from makefile
+mstflint_CXXFLAGS = -Wall -W -g -MP -MD -pipe -DEXTERNAL \
+	$(am__append_2) -DFLINT_NAME=\"mstflint\" \
+	-DFLINT_DISPLAY_NAME=\"MstFlint\" \
+	-DMST_DEV_EXAMPLE1=\"03:00.0\" -DMST_DEV_EXAMPLE2=\"mlx4_0\" \
+	-DMST_DEV_EXAMPLE3=\"03:00.0\"
+mstflint_SOURCES = flint.cpp flint.h subcommands.cpp subcommands.h\
+					flint_params.cpp flint_params.h cmd_line_parser.cpp err_msgs.h
+
+mstflint_LDADD = ../mlxfwops/lib/libmlxfwops.a \
+	../cmdparser/libcmdparser.a ../mflash/libmflash.a \
+	../reg_access/libreg_access.a ../mtcr_ul/libmtcr_ul.a \
+	../tools_layouts/libtools_layouts.a ../mft_utils/libmftutils.a \
+	$(LIBSTD_CPP) -ldl $(am__append_1)
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .cpp .lo .o .obj
+.SUFFIXES: .cpp .lo .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -330,33 +350,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/adb_to_c_utils.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cibfw_layouts.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mstflint-cmd_line_parser.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mstflint-flint.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mstflint-flint_base.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mstflint-flint_io.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mstflint-flint_ops.Po@am__quote@
-
-.c.o:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c $<
-
-.c.obj:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
-
-.c.lo:
-@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mstflint-flint_params.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mstflint-subcommands.Po@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -393,73 +390,53 @@ mstflint-flint.obj: flint.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint.obj `if test -f 'flint.cpp'; then $(CYGPATH_W) 'flint.cpp'; else $(CYGPATH_W) '$(srcdir)/flint.cpp'; fi`
 
-mstflint-flint_base.o: flint_base.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_base.o -MD -MP -MF $(DEPDIR)/mstflint-flint_base.Tpo -c -o mstflint-flint_base.o `test -f 'flint_base.cpp' || echo '$(srcdir)/'`flint_base.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_base.Tpo $(DEPDIR)/mstflint-flint_base.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_base.cpp' object='mstflint-flint_base.o' libtool=no @AMDEPBACKSLASH@
+mstflint-subcommands.o: subcommands.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-subcommands.o -MD -MP -MF $(DEPDIR)/mstflint-subcommands.Tpo -c -o mstflint-subcommands.o `test -f 'subcommands.cpp' || echo '$(srcdir)/'`subcommands.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-subcommands.Tpo $(DEPDIR)/mstflint-subcommands.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='subcommands.cpp' object='mstflint-subcommands.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_base.o `test -f 'flint_base.cpp' || echo '$(srcdir)/'`flint_base.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-subcommands.o `test -f 'subcommands.cpp' || echo '$(srcdir)/'`subcommands.cpp
 
-mstflint-flint_base.obj: flint_base.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_base.obj -MD -MP -MF $(DEPDIR)/mstflint-flint_base.Tpo -c -o mstflint-flint_base.obj `if test -f 'flint_base.cpp'; then $(CYGPATH_W) 'flint_base.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_base.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_base.Tpo $(DEPDIR)/mstflint-flint_base.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_base.cpp' object='mstflint-flint_base.obj' libtool=no @AMDEPBACKSLASH@
+mstflint-subcommands.obj: subcommands.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-subcommands.obj -MD -MP -MF $(DEPDIR)/mstflint-subcommands.Tpo -c -o mstflint-subcommands.obj `if test -f 'subcommands.cpp'; then $(CYGPATH_W) 'subcommands.cpp'; else $(CYGPATH_W) '$(srcdir)/subcommands.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-subcommands.Tpo $(DEPDIR)/mstflint-subcommands.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='subcommands.cpp' object='mstflint-subcommands.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_base.obj `if test -f 'flint_base.cpp'; then $(CYGPATH_W) 'flint_base.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_base.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-subcommands.obj `if test -f 'subcommands.cpp'; then $(CYGPATH_W) 'subcommands.cpp'; else $(CYGPATH_W) '$(srcdir)/subcommands.cpp'; fi`
 
-mstflint-flint_io.o: flint_io.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_io.o -MD -MP -MF $(DEPDIR)/mstflint-flint_io.Tpo -c -o mstflint-flint_io.o `test -f 'flint_io.cpp' || echo '$(srcdir)/'`flint_io.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_io.Tpo $(DEPDIR)/mstflint-flint_io.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_io.cpp' object='mstflint-flint_io.o' libtool=no @AMDEPBACKSLASH@
+mstflint-flint_params.o: flint_params.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_params.o -MD -MP -MF $(DEPDIR)/mstflint-flint_params.Tpo -c -o mstflint-flint_params.o `test -f 'flint_params.cpp' || echo '$(srcdir)/'`flint_params.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_params.Tpo $(DEPDIR)/mstflint-flint_params.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_params.cpp' object='mstflint-flint_params.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_io.o `test -f 'flint_io.cpp' || echo '$(srcdir)/'`flint_io.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_params.o `test -f 'flint_params.cpp' || echo '$(srcdir)/'`flint_params.cpp
 
-mstflint-flint_io.obj: flint_io.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_io.obj -MD -MP -MF $(DEPDIR)/mstflint-flint_io.Tpo -c -o mstflint-flint_io.obj `if test -f 'flint_io.cpp'; then $(CYGPATH_W) 'flint_io.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_io.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_io.Tpo $(DEPDIR)/mstflint-flint_io.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_io.cpp' object='mstflint-flint_io.obj' libtool=no @AMDEPBACKSLASH@
+mstflint-flint_params.obj: flint_params.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_params.obj -MD -MP -MF $(DEPDIR)/mstflint-flint_params.Tpo -c -o mstflint-flint_params.obj `if test -f 'flint_params.cpp'; then $(CYGPATH_W) 'flint_params.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_params.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_params.Tpo $(DEPDIR)/mstflint-flint_params.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_params.cpp' object='mstflint-flint_params.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_io.obj `if test -f 'flint_io.cpp'; then $(CYGPATH_W) 'flint_io.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_io.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_params.obj `if test -f 'flint_params.cpp'; then $(CYGPATH_W) 'flint_params.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_params.cpp'; fi`
 
-mstflint-flint_ops.o: flint_ops.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_ops.o -MD -MP -MF $(DEPDIR)/mstflint-flint_ops.Tpo -c -o mstflint-flint_ops.o `test -f 'flint_ops.cpp' || echo '$(srcdir)/'`flint_ops.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_ops.Tpo $(DEPDIR)/mstflint-flint_ops.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_ops.cpp' object='mstflint-flint_ops.o' libtool=no @AMDEPBACKSLASH@
+mstflint-cmd_line_parser.o: cmd_line_parser.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-cmd_line_parser.o -MD -MP -MF $(DEPDIR)/mstflint-cmd_line_parser.Tpo -c -o mstflint-cmd_line_parser.o `test -f 'cmd_line_parser.cpp' || echo '$(srcdir)/'`cmd_line_parser.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-cmd_line_parser.Tpo $(DEPDIR)/mstflint-cmd_line_parser.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='cmd_line_parser.cpp' object='mstflint-cmd_line_parser.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_ops.o `test -f 'flint_ops.cpp' || echo '$(srcdir)/'`flint_ops.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-cmd_line_parser.o `test -f 'cmd_line_parser.cpp' || echo '$(srcdir)/'`cmd_line_parser.cpp
 
-mstflint-flint_ops.obj: flint_ops.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-flint_ops.obj -MD -MP -MF $(DEPDIR)/mstflint-flint_ops.Tpo -c -o mstflint-flint_ops.obj `if test -f 'flint_ops.cpp'; then $(CYGPATH_W) 'flint_ops.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_ops.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-flint_ops.Tpo $(DEPDIR)/mstflint-flint_ops.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='flint_ops.cpp' object='mstflint-flint_ops.obj' libtool=no @AMDEPBACKSLASH@
+mstflint-cmd_line_parser.obj: cmd_line_parser.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -MT mstflint-cmd_line_parser.obj -MD -MP -MF $(DEPDIR)/mstflint-cmd_line_parser.Tpo -c -o mstflint-cmd_line_parser.obj `if test -f 'cmd_line_parser.cpp'; then $(CYGPATH_W) 'cmd_line_parser.cpp'; else $(CYGPATH_W) '$(srcdir)/cmd_line_parser.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/mstflint-cmd_line_parser.Tpo $(DEPDIR)/mstflint-cmd_line_parser.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='cmd_line_parser.cpp' object='mstflint-cmd_line_parser.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-flint_ops.obj `if test -f 'flint_ops.cpp'; then $(CYGPATH_W) 'flint_ops.cpp'; else $(CYGPATH_W) '$(srcdir)/flint_ops.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mstflint_CXXFLAGS) $(CXXFLAGS) -c -o mstflint-cmd_line_parser.obj `if test -f 'cmd_line_parser.cpp'; then $(CYGPATH_W) 'cmd_line_parser.cpp'; else $(CYGPATH_W) '$(srcdir)/cmd_line_parser.cpp'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-mstflintincludeHEADERS: $(mstflintinclude_HEADERS)
-	@$(NORMAL_INSTALL)
-	test -z "$(mstflintincludedir)" || $(MKDIR_P) "$(DESTDIR)$(mstflintincludedir)"
-	@list='$(mstflintinclude_HEADERS)'; test -n "$(mstflintincludedir)" || list=; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(mstflintincludedir)'"; \
-	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(mstflintincludedir)" || exit $$?; \
-	done
-
-uninstall-mstflintincludeHEADERS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(mstflintinclude_HEADERS)'; test -n "$(mstflintincludedir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(mstflintincludedir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(mstflintincludedir)" && rm -f $$files
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -545,9 +522,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS) $(HEADERS)
+all-am: Makefile $(PROGRAMS)
 installdirs:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(mstflintincludedir)"; do \
+	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -597,7 +574,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-mstflintincludeHEADERS
+install-data-am:
 
 install-dvi: install-dvi-am
 
@@ -643,7 +620,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-mstflintincludeHEADERS
+uninstall-am: uninstall-binPROGRAMS
 
 .MAKE: install-am install-strip
 
@@ -654,13 +631,12 @@ uninstall-am: uninstall-binPROGRAMS uninstall-mstflintincludeHEADERS
 	install-binPROGRAMS install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
-	install-mstflintincludeHEADERS install-pdf install-pdf-am \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-mstflintincludeHEADERS
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags uninstall uninstall-am \
+	uninstall-binPROGRAMS
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

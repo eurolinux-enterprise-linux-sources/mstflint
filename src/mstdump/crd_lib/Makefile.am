@@ -32,12 +32,10 @@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
 
-INCLUDES =	-I. -I$(top_srcdir)/include/mtcr_ul
 
-AM_CFLAGS = -Wall -W -g -MP -MD -pipe -Wno-unused-function  $(COMPILER_FPIC) -DMTCR_EXPORT -DDATA_PATH=\"$(pkgdatadir)\"
+INCLUDES =	-I$(top_srcdir) -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common
+AM_CFLAGS = -Wall -W -g -MP -MD -pipe -Wno-unused-function  $(COMPILER_FPIC) -DMTCR_EXPORT -DMST_UL -DDATA_PATH=\"$(pkgdatadir)\"
 
-noinst_LTLIBRARIES = libcrdump.la
+noinst_LIBRARIES = libcrdump.a
 
-libcrdump_la_SOURCES = crdump.c crdump.h 
-libcrdump_la_CFLAGS  = $(AM_CFLAGS)
-
+libcrdump_a_SOURCES = crdump.c crdump.h

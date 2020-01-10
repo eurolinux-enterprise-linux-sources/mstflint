@@ -81,8 +81,8 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_mstregdump_OBJECTS = mstdump.$(OBJEXT)
 mstregdump_OBJECTS = $(am_mstregdump_OBJECTS)
-mstregdump_DEPENDENCIES = ../crd_lib/libcrdump.la \
-	../../dev_mgt/libdev_mgt.la
+mstregdump_DEPENDENCIES = ../crd_lib/libcrdump.a \
+	../../dev_mgt/libdev_mgt.a ../../mtcr_ul/libmtcr_ul.a
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
@@ -126,6 +126,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ENABLE_DC = @ENABLE_DC@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -204,8 +205,6 @@ localstatedir = @localstatedir@
 lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
-mstflint_CXXFLAGS = @mstflint_CXXFLAGS@
-mstflint_LIBS = @mstflint_LIBS@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -221,10 +220,10 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
-INCLUDES = -I. -I$(srcdir)/../crd_lib -I$(top_srcdir)/include/mtcr_ul 
-AM_CFLAGS = -MD -pipe -g -Wall -W 
+INCLUDES = -I$(top_srcdir) -I$(srcdir)/../crd_lib -I$(top_srcdir)/include/mtcr_ul
+AM_CFLAGS = -MD -pipe -g -Wall -W
 mstregdump_SOURCES = mstdump.c
-mstregdump_LDADD = ../crd_lib/libcrdump.la ../../dev_mgt/libdev_mgt.la  -lm
+mstregdump_LDADD = ../crd_lib/libcrdump.a ../../dev_mgt/libdev_mgt.a ../../mtcr_ul/libmtcr_ul.a  -lm -ldl
 all: all-am
 
 .SUFFIXES:

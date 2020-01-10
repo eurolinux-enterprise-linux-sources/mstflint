@@ -1,1 +1,1 @@
-#define TOOLS_SVN_VER "6961daa"
+#define TOOLS_GIT_SHA "7d4dede"

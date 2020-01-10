@@ -1,14 +1,21 @@
+%{!?ibmadlib: %define ibmadlib libibmad-devel}
+%{!?name: %define name mstflint}
+%{!?version: %define version 3.6.0}
+%{!?release: %define release 1}
+%{!?ppcbuild: %define ppcbuild 0}
+%{!?ppc64build: %define ppc64build 0}
+
 Summary: Mellanox firmware burning application
-Name: mstflint
-Version: 3.0
-Release: 0.6.g6961daa
+Name: %{name}
+Version: 3.6.0
+Release: 1.8.g7d4dede
 License: GPL/BSD
 Url: http://openfabrics.org
 Group: System Environment/Base
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}
-Source: http://www.openfabrics.org/downloads/mstflint-3.0-0.6.g6961daa.tar.gz
+Source: http://www.openfabrics.org/downloads/mstflint-3.6.0-1.8.g7d4dede.tar.gz
 ExclusiveArch: i386 i486 i586 i686 x86_64 ia64 ppc ppc64
-BuildRequires: zlib-devel
+BuildRequires: zlib-devel %{ibmadlib}
 
 %description
 This package contains firmware update tool, vpd dump and register dump tools
@@ -18,7 +25,17 @@ for network adapters based on Mellanox Technologies chips.
 %setup -q
 
 %build
-%configure
+
+%if %{ppcbuild}
+    config_flags="$config_flags -host=ppc-linux MST_CPU=ppc MST_EMBEDDED=1 --without-pythontools"
+%endif
+
+%if %{ppc64build}
+    config_flags="$config_flags -host=ppc64-linux MST_CPU=ppc64 --without-pythontools"
+%endif
+
+%configure ${config_flags}
+
 make
 
 %install
@@ -39,11 +56,19 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/mstmtserver
 %{_bindir}/mstvpd
 %{_bindir}/mstmcra
+%{_bindir}/mstconfig
 %{_bindir}/hca_self_test.ofed
 %{_includedir}/mtcr_ul/mtcr.h
+%{_libdir}/libmtcr_ul.a
 %{_datadir}/mstflint
+%{_mandir}/man1/*
 
 %changelog
+* Mon Mar 31 2014 Oren Kladnitsky <orenk@dev.mellanox.co.il>
+   MFT 3.6.0 Updates
+
+* Tue Dec 24 2013 Oren Kladnitsky <orenk@dev.mellanox.co.il>
+   MFT 3.5.0 Updates
 
 * Wed Mar 20 2013 Oren Kladnitsky <orenk@dev.mellanox.co.il>
    MFT 3.0.0

@@ -31,13 +31,12 @@
 #--
 
 # Makefile.am -- Process this file with automake to produce Makefile.in
-MTCR_DIR = $(top_srcdir)/include/mtcr_ul
-INCLUDES = -I. -I$(MTCR_DIR) -I$(top_srcdir)/common
+INCLUDES= -I. -I$(top_srcdir)/include/mtcr_ul -I$(top_srcdir)/common -I$(top_srcdir)/tools_layouts -I$(top_srcdir)/reg_access
 
-AM_CFLAGS = -MD -pipe -Wall -W  -g -DNO_INBAND_ACCESS 
+AM_CFLAGS = -MD -pipe -Wall -W -DMST_UL -g ${MFLASH_INBAND_FLAG}
 
 noinst_LIBRARIES = libmflash.a
 
-libmflash_a_SOURCES =  mflash.c \
-                       mflash.h
-
+libmflash_a_SOURCES =  mflash.c mflash.h\
+			mflash_pack_layer.c mflash_pack_layer.h mflash_access_layer.c mflash_access_layer.h\
+			mflash_types.h mlash_common_structs.h
